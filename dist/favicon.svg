@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Chasing P1">
+  <!--
+    Tab icon: the P1 monogram on the dark tile from the brand sheet's app icon.
+    Two differences from components/Brand.tsx, both for legibility at 16px:
+    the diagonal split is a hard two-tone rather than a soft gradient, and the
+    P's counter is opened up so it survives being three pixels wide.
+  -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#141a20" />
+      <stop offset="1" stop-color="#05070a" />
+    </linearGradient>
+    <linearGradient id="split" x1="0.05" y1="1" x2="0.95" y2="0">
+      <stop offset="0" stop-color="#c8ff00" />
+      <stop offset="0.46" stop-color="#c8ff00" />
+      <stop offset="0.46" stop-color="#ffffff" />
+      <stop offset="1" stop-color="#ffffff" />
+    </linearGradient>
+  </defs>
+
+  <rect width="128" height="128" rx="26" fill="url(#tile)" />
+  <rect x="0.5" y="0.5" width="127" height="127" rx="25.5" fill="none" stroke="#c8ff00" stroke-opacity="0.22" />
+
+  <g transform="translate(16,30) scale(0.94)">
+    <g transform="translate(16,0) skewX(-12)">
+      <path fill="url(#split)" fill-rule="evenodd" d="M0,0 H48 V42 H18 V72 H0 Z M18,12 H36 V30 H18 Z" />
+      <path fill="#c8ff00" d="M84,0 V72 H66 V16 H54 L66,0 Z" />
+    </g>
+  </g>
+</svg>
