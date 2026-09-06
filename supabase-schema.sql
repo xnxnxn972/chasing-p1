@@ -89,15 +89,32 @@ grant insert, update on public.cp_sessions to anon, authenticated;
 -- append columns, so inserting device/platform mid-list fails with
 -- "cannot change name of view column". A view holds no data, so this is safe.
 drop view if exists public.cp_sessions_log;
+
 create view public.cp_sessions_log as
 select
   created_at,
-  coalesce(driver_name, '(no career)')                as driver,
+
+  -- One scannable handle: "Yaniv Axen #27 (IL)"
+  case
+    when driver_name is null then '(no career started)'
+    else driver_name
+         || coalesce(' #' || driver_number::text, '')
+         || coalesce(' (' || nationality || ')', '')
+  end                                                 as player,
+
+  -- and the same three, separately, for grouping and filtering
+  driver_name,
+  driver_number,
+  nationality,                                        -- chosen on the setup screen
+  style,
+
   device,
   platform,
   app_version,
-  country,
-  city,
+
+  country                                             as geo_country,  -- from IP
+  city                                                as geo_city,     -- from IP
+
   duration_s,
   careers_started,
   careers_finished,
@@ -112,3 +129,4 @@ select
   meta
 from public.cp_sessions
 order by created_at desc;
+
