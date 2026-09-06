@@ -55,16 +55,28 @@ create index if not exists cp_sessions_env_idx        on public.cp_sessions (env
 
 alter table public.cp_sessions enable row level security;
 
-drop policy if exists cp_sessions_anon_insert on public.cp_sessions;
-create policy cp_sessions_anon_insert on public.cp_sessions
-  for insert to anon with check (true);
+drop policy if exists cp_sessions_anon_insert  on public.cp_sessions;
+drop policy if exists cp_sessions_anon_update  on public.cp_sessions;
+drop policy if exists cp_sessions_write_insert on public.cp_sessions;
+drop policy if exists cp_sessions_write_update on public.cp_sessions;
 
-drop policy if exists cp_sessions_anon_update on public.cp_sessions;
-create policy cp_sessions_anon_update on public.cp_sessions
-  for update to anon using (true) with check (true);
+create policy cp_sessions_write_insert on public.cp_sessions
+  for insert to public with check (true);
+
+create policy cp_sessions_write_update on public.cp_sessions
+  for update to public using (true) with check (true);
+
+-- Table privileges are separate from RLS; a policy alone is not enough.
+grant insert, update on public.cp_sessions to anon, authenticated;
 
 -- Deliberately NO anon select: a visitor can write their own row but cannot
 -- read anyone else's. Read the log from the Supabase dashboard.
+--
+-- Because there is no SELECT right, the client must send a PLAIN insert. An
+-- upsert (PostgREST's `Prefer: resolution=merge-duplicates`) becomes
+-- INSERT ... ON CONFLICT DO UPDATE, which needs SELECT, and Postgres reports
+-- the refusal as "new row violates row-level security policy" — which sends you
+-- looking at the policies rather than at the header that caused it.
 
 -- Handy view: the one-line-per-session summary.
 create or replace view public.cp_sessions_log as

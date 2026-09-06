@@ -122,9 +122,13 @@ async function push(keepalive = false): Promise<void> {
   row.duration_s = Math.round((Date.now() - started) / 1000);
   try {
     if (!inserted) {
+      // A plain insert, deliberately NOT an upsert. `resolution=merge-duplicates`
+      // turns this into INSERT ... ON CONFLICT DO UPDATE, which needs SELECT
+      // rights on the table — and the log intentionally grants none, so Postgres
+      // rejects it as an RLS violation. session_id is unique per session anyway.
       const res = await fetch(REST, {
         method: 'POST',
-        headers: headers({ Prefer: 'resolution=merge-duplicates' }),
+        headers: headers({ Prefer: 'return=minimal' }),
         body: JSON.stringify(row),
         keepalive
       });
@@ -133,7 +137,7 @@ async function push(keepalive = false): Promise<void> {
     }
     await fetch(`${REST}?session_id=eq.${encodeURIComponent(row.session_id)}`, {
       method: 'PATCH',
-      headers: headers(),
+      headers: headers({ Prefer: 'return=minimal' }),
       body: JSON.stringify(row),
       keepalive
     });
