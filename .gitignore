@@ -3,3 +3,8 @@
 node_modules/
 .tmp/
 *.local
+
+# /dist/ here is NOT this project's build output — it holds a redirect stub for
+# the old gardening-tycoon URL, tracked by THAT repo, not this one.
+# This project builds to docs/.
+/dist/
