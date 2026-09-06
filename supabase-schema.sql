@@ -49,8 +49,12 @@ create table if not exists public.cp_sessions (
   screen          text,
   referrer        text,
   device          text,          -- mobile | tablet | desktop
-  platform        text           -- iOS | Android | Windows | macOS | Linux | ChromeOS
+  platform        text,          -- iOS | Android | Windows | macOS | Linux | ChromeOS
+  app_version     text,          -- which build wrote the row
+  meta            jsonb   not null default '{}'::jsonb  -- expansion hatch, no migration needed
 );
+
+create index if not exists cp_sessions_meta_idx on public.cp_sessions using gin (meta);
 
 create index if not exists cp_sessions_created_at_idx on public.cp_sessions (created_at desc);
 create index if not exists cp_sessions_env_idx        on public.cp_sessions (env);
@@ -87,6 +91,7 @@ select
   coalesce(driver_name, '(no career)')                as driver,
   device,
   platform,
+  app_version,
   country,
   city,
   duration_s,
@@ -99,6 +104,7 @@ select
   career_score,
   shared,
   env,
-  seed
+  seed,
+  meta
 from public.cp_sessions
 order by created_at desc;

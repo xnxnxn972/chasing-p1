@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -32,7 +32,11 @@ function writeAsset(): Plugin {
   };
 }
 
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
+const APP_VERSION = `${pkg.version}+${new Date().toISOString().slice(0, 10)}`;
+
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   // Relative base so the built app works on GitHub Pages subpaths.
   base: './',
   plugins: [react(), writeAsset()],

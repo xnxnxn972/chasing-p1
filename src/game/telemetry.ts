@@ -56,6 +56,15 @@ export interface SessionRow {
   device: string | null;
   /** 'iOS' | 'Android' | 'Windows' | 'macOS' | 'Linux' | 'ChromeOS' | 'other'. */
   platform: string | null;
+  /** Which build produced this row. Rows are meaningless without it. */
+  app_version: string | null;
+  /**
+   * Anything not worth a column of its own, yet. Adding a key here needs no
+   * migration and no deploy coordination: old rows simply lack it, and queries
+   * read it with `meta->>'key'`. Promote a key to a real column once it earns
+   * an index.
+   */
+  meta: Record<string, unknown>;
 }
 
 /**
@@ -128,6 +137,8 @@ const row: SessionRow = {
   user_agent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 300) : null,
   screen: typeof window !== 'undefined' ? `${window.screen?.width ?? 0}x${window.screen?.height ?? 0}` : null,
   referrer: typeof document !== 'undefined' ? document.referrer.slice(0, 300) || null : null,
+  app_version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : null,
+  meta: {},
   ...detectDevice()
 };
 
@@ -164,7 +175,7 @@ async function lookupGeo(): Promise<void> {
  * otherwise stop all logging silently. On that specific failure we drop the
  * newest fields and send the rest, and remember to keep doing so.
  */
-const OPTIONAL_FIELDS: (keyof SessionRow)[] = ['device', 'platform'];
+const OPTIONAL_FIELDS: (keyof SessionRow)[] = ['device', 'platform', 'app_version', 'meta'];
 let dropOptional = false;
 
 function payload(): Partial<SessionRow> {
@@ -280,6 +291,18 @@ export function trackCareerEnd(summary: {
     row.career_title = summary.careerTitle;
     row.career_score = summary.score;
   }
+  schedule();
+}
+
+/**
+ * Record anything else, with no schema change required. Use this first; move a
+ * key into its own column only once you want to index or group by it.
+ *
+ *   trackExtra('reached_summary', true)
+ *   trackExtra('decisions_taken', 14)
+ */
+export function trackExtra(key: string, value: unknown): void {
+  row.meta[key] = value;
   schedule();
 }
 

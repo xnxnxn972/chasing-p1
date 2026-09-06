@@ -6,6 +6,17 @@
 alter table public.cp_sessions add column if not exists device   text;  -- mobile | tablet | desktop
 alter table public.cp_sessions add column if not exists platform text;  -- iOS | Android | Windows | macOS | Linux | ChromeOS
 
+-- Which build wrote the row. Without this, a mix of versions is unreadable.
+alter table public.cp_sessions add column if not exists app_version text;
+
+-- The expansion hatch. Anything new goes in here with NO migration and NO
+-- deploy coordination: old rows simply lack the key, new ones have it, and
+-- queries read it with meta->>'key'. Promote a key to a real column only when
+-- it earns an index.
+alter table public.cp_sessions add column if not exists meta jsonb not null default '{}'::jsonb;
+
+create index if not exists cp_sessions_meta_idx on public.cp_sessions using gin (meta);
+
 -- Rebuild the readable view so the new columns show up in it.
 create or replace view public.cp_sessions_log as
 select
@@ -13,6 +24,7 @@ select
   coalesce(driver_name, '(no career)')                as driver,
   device,
   platform,
+  app_version,
   country,
   city,
   duration_s,
@@ -25,7 +37,8 @@ select
   career_score,
   shared,
   env,
-  seed
+  seed,
+  meta
 from public.cp_sessions
 order by created_at desc;
 
