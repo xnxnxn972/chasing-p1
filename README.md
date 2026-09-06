@@ -16,8 +16,12 @@ npm install
 npm run dev
 ```
 
-`npm run build` produces a `dist/` with a relative base, so it drops straight
-onto GitHub Pages. `npm run typecheck` runs `tsc --noEmit`.
+`npm run build` writes to `docs/`, which GitHub Pages serves as the site root —
+that is why the public URL has no `/dist/` in it. `docs/` is committed on
+purpose, so **rebuild before every push** or the live site serves a stale
+bundle. `npm run typecheck` runs `tsc --noEmit`.
+
+Live at **https://xnxnxn972.github.io/chasing-p1/**
 
 ## The three screens
 

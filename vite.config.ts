@@ -39,6 +39,8 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   // Relative base so the built app works on GitHub Pages subpaths.
   base: './',
+  // Pages serves /docs as the site root, which keeps the public URL clean.
+  build: { outDir: 'docs' },
   plugins: [react(), writeAsset()],
   server: { port: 5174, host: true }
 });

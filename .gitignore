@@ -1,5 +1,5 @@
-# dist/ is committed on purpose — GitHub Pages serves it at
-# /chasing-p1/dist/. Rebuild with `npm run build` before pushing.
+# docs/ is committed on purpose — GitHub Pages serves it as the site root,
+# so the public URL has no /dist/ segment. Rebuild before pushing.
 node_modules/
 .tmp/
 *.local
