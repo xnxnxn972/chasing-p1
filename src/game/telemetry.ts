@@ -24,7 +24,12 @@ const TABLE = 'cp_sessions';
 const REST = `${SUPABASE_URL}/rest/v1/${TABLE}`;
 
 export interface SessionRow {
+  /** Unique per CAREER — one row per career played. */
   session_id: string;
+  /** Stable for one page load, so careers from one visit can be grouped. */
+  visit_id: string;
+  /** 1 for the first career of the visit, 2 for the second, and so on. */
+  career_index: number;
   env: 'prod' | 'dev';
   started_at: string;
   duration_s: number;
@@ -111,6 +116,7 @@ function newId(): string {
 }
 
 const started = Date.now();
+let rowStarted = started;
 
 /**
  * Two different clocks, because they answer different questions.
@@ -144,8 +150,12 @@ function activeSeconds(): number {
   return Math.round((activeMs + (visibleSince ? Date.now() - visibleSince : 0)) / 1000);
 }
 
+const visitId = newId();
+
 const row: SessionRow = {
   session_id: newId(),
+  visit_id: visitId,
+  career_index: 0,
   env: typeof location !== 'undefined' && /^(localhost|127\.|\[?::1)/.test(location.hostname) ? 'dev' : 'prod',
   started_at: new Date(started).toISOString(),
   duration_s: 0,
@@ -207,14 +217,21 @@ async function lookupGeo(): Promise<void> {
  * otherwise stop all logging silently. On that specific failure we drop the
  * newest fields and send the rest, and remember to keep doing so.
  */
-const OPTIONAL_FIELDS: (keyof SessionRow)[] = ['device', 'platform', 'app_version', 'meta'];
+const OPTIONAL_FIELDS: (keyof SessionRow)[] = [
+  'device',
+  'platform',
+  'app_version',
+  'meta',
+  'visit_id',
+  'career_index'
+];
 let dropOptional = false;
 
-function payload(): Partial<SessionRow> {
-  if (!dropOptional) return row;
-  const copy: Partial<SessionRow> = { ...row };
+function strip(snapshot: Partial<SessionRow>, drop: boolean): string {
+  if (!drop) return JSON.stringify(snapshot);
+  const copy: Partial<SessionRow> = { ...snapshot };
   for (const key of OPTIONAL_FIELDS) delete copy[key];
-  return copy;
+  return JSON.stringify(copy);
 }
 
 /** True when the failure is "that column does not exist". */
@@ -223,18 +240,23 @@ function isUnknownColumn(status: number, body: string): boolean {
 }
 
 async function push(keepalive = false): Promise<void> {
-  row.duration_s = Math.round((Date.now() - started) / 1000);
+  row.duration_s = Math.round((Date.now() - rowStarted) / 1000);
   row.meta.active_s = activeSeconds();
+
+  // Snapshot everything the write depends on, synchronously. `push` is async
+  // and a new career can begin while it is in flight — without this, the old
+  // row's success would mark the NEW row as already inserted and that row
+  // would never get a POST of its own.
+  const snapshot: Partial<SessionRow> = { ...row, meta: { ...row.meta } };
+  const sessionId = row.session_id;
+  const isInsert = !inserted;
+
   try {
-    if (!inserted) {
-      // A plain insert, deliberately NOT an upsert. `resolution=merge-duplicates`
-      // turns this into INSERT ... ON CONFLICT DO UPDATE, which needs SELECT
-      // rights on the table — and the log intentionally grants none, so Postgres
-      // rejects it as an RLS violation. session_id is unique per session anyway.
+    if (isInsert) {
       let res = await fetch(REST, {
         method: 'POST',
         headers: headers({ Prefer: 'return=minimal' }),
-        body: JSON.stringify(payload()),
+        body: strip(snapshot, dropOptional),
         keepalive
       });
       if (!res.ok && !dropOptional && isUnknownColumn(res.status, await res.clone().text())) {
@@ -242,17 +264,19 @@ async function push(keepalive = false): Promise<void> {
         res = await fetch(REST, {
           method: 'POST',
           headers: headers({ Prefer: 'return=minimal' }),
-          body: JSON.stringify(payload()),
+          body: strip(snapshot, true),
           keepalive
         });
       }
-      if (res.ok) inserted = true;
+      // Only claim insertion for the row this call actually pushed.
+      if (res.ok && row.session_id === sessionId) inserted = true;
       return;
     }
-    const res = await fetch(`${REST}?session_id=eq.${encodeURIComponent(row.session_id)}`, {
+
+    const res = await fetch(`${REST}?session_id=eq.${encodeURIComponent(sessionId)}`, {
       method: 'PATCH',
       headers: headers({ Prefer: 'return=minimal' }),
-      body: JSON.stringify(payload()),
+      body: strip(snapshot, dropOptional),
       keepalive
     });
     if (!res.ok && !dropOptional && isUnknownColumn(res.status, await res.clone().text())) {
@@ -295,11 +319,48 @@ export function initTelemetry(): void {
       resumeActive();
     }
   };
+  // Every interaction refreshes last_activity_at, throttled so a career's worth
+  // of clicks is a handful of writes rather than sixty. Session length is then
+  // last_activity_at - created_at, computed in SQL — which stays correct even
+  // when the final flush never lands.
+  let lastPing = 0;
+  const onActivity = () => {
+    const now = Date.now();
+    if (now - lastPing < 30000) return;
+    lastPing = now;
+    schedule();
+  };
+  document.addEventListener('click', onActivity, { passive: true });
+  document.addEventListener('keydown', onActivity, { passive: true });
+
   document.addEventListener('visibilitychange', flush);
   window.addEventListener('pagehide', () => {
     pauseActive();
     void push(true);
   });
+}
+
+/**
+ * Begin a fresh row. The visit keeps its id so careers from one sitting can be
+ * grouped, but each career gets its own row — three careers, three rows.
+ */
+function startNewRow(): void {
+  void push();                     // flush the career that just ended
+  row.session_id = newId();
+  row.started_at = new Date().toISOString();
+  row.careers_finished = 0;
+  row.reached_f1 = false;
+  row.seasons = 0;
+  row.titles = 0;
+  row.career_title = null;
+  row.career_score = 0;
+  row.shared = false;
+  row.share_result = null;
+  row.meta = {};
+  activeMs = 0;
+  visibleSince = Date.now();
+  rowStarted = Date.now();
+  inserted = false;                // the new row needs its own insert
 }
 
 export function trackCareerStart(setup: {
@@ -309,7 +370,10 @@ export function trackCareerStart(setup: {
   style: string;
   seed: string;
 }): void {
-  row.careers_started += 1;
+  // Second and later careers of a visit start their own row.
+  if (row.career_index > 0) startNewRow();
+  row.career_index += 1;
+  row.careers_started = 1;
   row.driver_name = setup.name.slice(0, 60);
   row.driver_number = setup.number;
   row.nationality = setup.nationality;
@@ -359,7 +423,7 @@ export function trackShare(result: string): void {
 export function telemetrySnapshot(): SessionRow {
   return {
     ...row,
-    duration_s: Math.round((Date.now() - started) / 1000),
+    duration_s: Math.round((Date.now() - rowStarted) / 1000),
     meta: { ...row.meta, active_s: activeSeconds() }
   };
 }

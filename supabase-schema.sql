@@ -58,6 +58,7 @@ create index if not exists cp_sessions_meta_idx on public.cp_sessions using gin 
 
 create index if not exists cp_sessions_created_at_idx on public.cp_sessions (created_at desc);
 create index if not exists cp_sessions_env_idx        on public.cp_sessions (env);
+create index if not exists cp_sessions_visit_idx      on public.cp_sessions (visit_id);
 
 alter table public.cp_sessions enable row level security;
 
@@ -88,13 +89,27 @@ grant insert, update on public.cp_sessions to anon, authenticated;
 -- Dropped and recreated, not CREATE OR REPLACE: replacing a view can only
 -- append columns, so inserting device/platform mid-list fails with
 -- "cannot change name of view column". A view holds no data, so this is safe.
+-- Touch last_activity_at on every update, server-side.
+create or replace function public.cp_touch_last_activity()
+returns trigger language plpgsql as $$
+begin
+  new.last_activity_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists cp_sessions_touch on public.cp_sessions;
+create trigger cp_sessions_touch
+  before update on public.cp_sessions
+  for each row execute function public.cp_touch_last_activity();
+
+
 drop view if exists public.cp_sessions_log;
 
 create view public.cp_sessions_log as
 select
   created_at,
 
-  -- One scannable handle: "Yaniv Axen #27 (IL)"
   case
     when driver_name is null then '(no career started)'
     else driver_name
@@ -102,30 +117,34 @@ select
          || coalesce(' (' || nationality || ')', '')
   end                                                 as player,
 
-  -- and the same three, separately, for grouping and filtering
+  -- session length, server-side: first write to last activity
+  greatest(0, extract(epoch from (last_activity_at - created_at)))::int
+                                                      as session_s,
+  (meta->>'active_s')::int                            as active_s,
+
+  career_index,
   driver_name,
   driver_number,
-  nationality,                                        -- chosen on the setup screen
+  nationality,
   style,
 
   device,
   platform,
   app_version,
 
-  country                                             as geo_country,  -- from IP
-  city                                                as geo_city,     -- from IP
+  country                                             as geo_country,
+  city                                                as geo_city,
 
-  duration_s,
-  careers_started,
-  careers_finished,
   case when reached_f1 then 'F1' else '—' end         as got_to,
   seasons,
   titles,
   career_title,
   career_score,
+  careers_finished                                    as finished,
   shared,
   env,
   seed,
+  visit_id,
   meta
 from public.cp_sessions
 order by created_at desc;
