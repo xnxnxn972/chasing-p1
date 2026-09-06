@@ -313,6 +313,16 @@ export async function renderShareCard(data: ShareData): Promise<Blob> {
   });
 }
 
+/**
+ * Where this copy of the game lives, for the share text. Derived rather than
+ * hardcoded so it stays right if the game ever moves; query and hash are
+ * dropped so a cache-busted visit does not share a cache-busted link.
+ */
+export function gameUrl(): string {
+  if (typeof location === 'undefined') return '';
+  return `${location.origin}${location.pathname}`.replace(/index\.html$/, '');
+}
+
 export type ShareResult = 'shared' | 'downloaded' | 'cancelled' | 'failed';
 
 /**
@@ -336,10 +346,18 @@ export async function shareCareerCard(data: ShareData): Promise<ShareResult> {
 
   if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
     try {
+      // The link goes inside `text` rather than in `url`: when a file is
+      // attached most targets keep the text and drop everything else, and
+      // passing both duplicates the link on the ones that do keep it.
+      const headline = `${data.title}. ${
+        data.totals.titles > 0 ? `${data.totals.titles}× World Champion, ` : ''
+      }${data.totals.f1Wins} wins.`;
       await nav.share({
         files: [file],
         title: `${data.title} — ${data.name}`,
-        text: `${data.title}. ${data.totals.titles > 0 ? `${data.totals.titles}× World Champion, ` : ''}${data.totals.f1Wins} wins. Chasing P1.`
+        text: `${headline}
+
+Play Chasing P1: ${gameUrl()}`
       });
       return 'shared';
     } catch (err) {

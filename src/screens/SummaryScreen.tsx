@@ -11,7 +11,7 @@ import { formatMoney } from '../game/contractEngine';
 import { CareerTable } from '../components/CareerTable';
 import { AchievementBadge } from '../components/StepCard';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
-import { canShareImages, shareCareerCard, shareDataFor } from '../components/shareCard';
+import { canShareImages, gameUrl, shareCareerCard, shareDataFor } from '../components/shareCard';
 
 export function SummaryScreen({ state, onRestart }: { state: GameState; onRestart: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -39,7 +39,8 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
     `${totals.f1Wins} wins · ${totals.f1Podiums} podiums · ${totals.f1Poles} poles`,
     teamPath.join(' → ') || 'Never reached Formula 1',
     `Peak OVR ${peakOverall} · Career score ${score.toLocaleString()} (${percentile})`,
-    `Seed ${state.seed}`
+    `CHASING P1 — ${TAGLINE.toUpperCase()}`,
+    gameUrl()
   ].join('\n');
 
   return (
