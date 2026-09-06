@@ -1,6 +1,7 @@
-import type { GameState, PendingDecision } from './types';
+import type { GameState, OutcomeView, PendingDecision, RollInfo } from './types';
 import type { DecisionContext, DecisionEvent, DecisionOptionDef, DecisionPhase } from '../data/decisions';
 import { DECISION_EVENTS } from '../data/decisions';
+import { optionOutcomes, outcomePercentages } from '../data/decisionModel';
 import { Rng } from './random';
 import { pickRival, teammateOf } from './driverMarket';
 
@@ -36,6 +37,26 @@ function eligible(state: GameState, ctx: DecisionContext, phase: DecisionPhase):
   });
 }
 
+/** The player-facing view of one option: its odds, spelled out. */
+function optionView(option: DecisionOptionDef) {
+  const outcomes = optionOutcomes(option);
+  const percents = outcomePercentages(outcomes);
+  const views: OutcomeView[] = outcomes.map((o, i) => ({
+    id: o.id,
+    percent: percents[i],
+    effect: o.effect,
+    detail: o.detail,
+    tone: o.tone
+  }));
+  return {
+    id: option.id,
+    label: option.label,
+    detail: option.detail,
+    certain: outcomes.length === 1,
+    outcomes: views
+  };
+}
+
 /**
  * Choose the next decision for a phase, or null when nothing fits. Events the
  * player has never seen are weighted well above repeats.
@@ -61,29 +82,40 @@ export function nextDecision(
     tag: event.tag,
     title: built.title,
     body: built.body,
-    options: built.options.map((o) => ({
-      id: o.id,
-      label: o.label,
-      detail: o.detail,
-      pros: o.pros,
-      cons: o.cons
-    }))
+    options: built.options.map(optionView)
   };
 }
 
-/** Apply the chosen option and return the narration to show the player. */
+/**
+ * Apply the chosen option. The outcome is drawn against exactly the weights the
+ * player was shown, and returned alongside the narration so the UI can play the
+ * reveal before saying which one landed.
+ */
 export function applyDecision(
   state: GameState,
   rng: Rng,
   eventId: string,
   optionId: string
-): string {
+): { note: string; roll?: RollInfo } {
   const options = builtOptions.get(eventId);
   const option = options?.find((o) => o.id === optionId);
   state.firedEvents.push(eventId);
-  if (!option) return '';
+  if (!option) return { note: '' };
   builtOptions.delete(eventId);
-  return option.apply(decisionContext(state, rng));
+
+  const outcomes = optionOutcomes(option);
+  const ctx = decisionContext(state, rng);
+  const chosen =
+    outcomes.length === 1 ? outcomes[0] : rng.pickWeighted(outcomes, (o) => Math.max(0, o.chance));
+  const note = chosen.apply(ctx);
+
+  if (outcomes.length === 1) return { note };
+
+  const view = optionView(option);
+  return {
+    note,
+    roll: { optionLabel: option.label, outcomes: view.outcomes, resultId: chosen.id }
+  };
 }
 
 export function resetDecisionCache(): void {

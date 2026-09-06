@@ -174,12 +174,26 @@ export interface ContractOffer {
   isReserve?: boolean;
 }
 
+export type OutcomeTone = 'good' | 'bad' | 'mixed' | 'neutral';
+
+/** One possible result of an option, with the odds the player is shown. */
+export interface OutcomeView {
+  id: string;
+  /** Whole-number percentage. The set for an option always sums to 100. */
+  percent: number;
+  /** Short, concrete effect summary — "Pace +2 · Reputation +3". */
+  effect: string;
+  detail?: string;
+  tone: OutcomeTone;
+}
+
 export interface DecisionOption {
   id: string;
   label: string;
   detail?: string;
-  pros?: string[];
-  cons?: string[];
+  /** A certain option has exactly one outcome at 100%. */
+  certain: boolean;
+  outcomes: OutcomeView[];
 }
 
 export interface PendingDecision {
@@ -189,6 +203,16 @@ export interface PendingDecision {
   title: string;
   body: string;
   options: DecisionOption[];
+}
+
+/**
+ * What the UI needs to play the dice-roll reveal: the option that was taken,
+ * every outcome it could have produced, and the one that actually landed.
+ */
+export interface RollInfo {
+  optionLabel: string;
+  outcomes: OutcomeView[];
+  resultId: string;
 }
 
 export interface PendingOffers {
@@ -215,6 +239,8 @@ export interface PendingNews {
   title: string;
   body: string;
   continueLabel: string;
+  /** Present when this news is the result of a decision that was rolled. */
+  roll?: RollInfo;
 }
 
 export type PendingStep =

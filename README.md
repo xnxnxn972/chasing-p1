@@ -37,12 +37,13 @@ branches on a team id — Ferrari is always Ferrari, but Ferrari's pace is part 
 the simulation and changes every season.
 
 ```
-src/data/     f1Teams · juniorTeams · nationalities · decisions · decisionsLate · achievements
+src/data/     f1Teams · juniorTeams · nationalities · achievements
+              decisionModel · decisions · decisionsJunior · decisionsF1 · decisionsLate
 src/game/     careerEngine · seasonSimulator · driverDevelopment · driverMarket
               contractEngine · teamDevelopment · decisionEngine · achievementEngine
               careerVerdict · random · types
 src/screens/  SetupScreen · CareerScreen · SummaryScreen
-src/components/ Brand · DriverCard · StepCard · CareerTable
+src/components/ Brand · DriverCard · StepCard · CareerTable · shareCard
 ```
 
 ### The season machine
@@ -61,6 +62,18 @@ contract → preseason → midseason → race → offseason → advance → cont
 
 The UI only ever sees `state.pending`, which is one of four card types:
 `decision`, `offers`, `result`, `news`.
+
+### Odds are shown, not hidden
+
+An option is either CERTAIN — one stated effect — or a gamble with two or three
+weighted outcomes. `decisionModel.ts` normalises those weights to whole
+percentages for the card, and `applyDecision` draws against the same weights, so
+the odds on screen can never drift from the odds the engine rolls.
+
+The result is decided the moment the option is clicked. The reveal that follows
+— rows cycling and decelerating into the one that landed — is presentation over
+an already-settled outcome, and is skipped entirely under
+`prefers-reduced-motion`.
 
 ### Determinism
 
@@ -148,7 +161,9 @@ is greyscale.
 - 11 real 2026 F1 teams, 22 seats, ~30 persistent AI drivers who develop, move, retire and win titles you were not part of
 - 18 fictional junior teams across F4/F3/F2
 - 31 decision events across contracts, politics, loyalty, money, status, risk, reputation, rivalry and retirement
-- 24 achievements, 16 career titles, deterministic verdict templates, career score and share card
+- 24 achievements, 16 career titles, deterministic verdict templates and career score
+- A 1080x1350 share card drawn on canvas and handed to the native share sheet
+  (`navigator.share` with files), falling back to saving the PNG
 
 ## Known gaps (deliberate, for v1.5+)
 

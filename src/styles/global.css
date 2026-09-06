@@ -748,20 +748,205 @@ h4 {
   margin-top: 4px;
 }
 
-.option-effects {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px 18px;
-  margin-top: 11px;
-  font-size: 12px;
+/* --- Outcome odds ------------------------------------------------------- */
+
+.option {
+  position: relative;
 }
 
-.pro {
-  color: var(--lime-dim);
-}
-
-.con {
+.option-index {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
   color: var(--text-faint);
+}
+
+.outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 11px;
+}
+
+.outcome {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 5px 0;
+  transition: opacity 0.18s, transform 0.12s;
+}
+
+.outcome-chance {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: center;
+  padding: 2px 0;
+  border-radius: 3px;
+  color: var(--ink);
+  background: var(--text-dim);
+}
+
+.tone-good .outcome-chance {
+  background: var(--lime);
+}
+
+.tone-bad .outcome-chance {
+  background: #ff5d4a;
+  color: #1a0603;
+}
+
+.tone-mixed .outcome-chance {
+  background: #d9a441;
+  color: #1a1203;
+}
+
+.outcome-arrow {
+  font-family: var(--mono);
+  font-size: 13px;
+  text-align: center;
+  color: var(--text-faint);
+  padding-top: 1px;
+}
+
+.outcome-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.outcome-effect {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.outcome-detail {
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.35;
+}
+
+/* --- The roll ----------------------------------------------------------- */
+
+.roll-option {
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.roll-outcomes {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  margin-bottom: 18px;
+}
+
+.roll-outcomes .outcome {
+  opacity: 0.28;
+  padding: 8px 0;
+}
+
+/* The row the reel is passing through. */
+.roll-outcomes .outcome.is-rolling {
+  opacity: 1;
+  transform: translateX(3px);
+}
+
+.roll-outcomes .outcome.is-won {
+  opacity: 1;
+  transform: none;
+  animation: outcome-land 0.42s ease-out;
+}
+
+.roll-outcomes .outcome.is-lost {
+  opacity: 0.2;
+}
+
+.roll-outcomes .outcome.is-lost .outcome-effect,
+.roll-outcomes .outcome.is-lost .outcome-detail {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+@keyframes outcome-land {
+  0% {
+    transform: scale(0.98);
+  }
+  45% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* The card's lime hairline pulses while the reel is spinning. */
+.roll-card::before {
+  animation: roll-sweep 0.55s linear infinite;
+}
+
+.roll-card.is-settled::before {
+  animation: none;
+  opacity: 1;
+}
+
+@keyframes roll-sweep {
+  0% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+.roll-note {
+  margin-bottom: 18px;
+  animation: roll-note-in 0.3s ease-out;
+}
+
+@keyframes roll-note-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.roll-skip {
+  padding-left: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roll-card::before,
+  .roll-outcomes .outcome.is-won,
+  .roll-note {
+    animation: none;
+  }
+
+  .outcome {
+    transition: none;
+  }
 }
 
 /* --- Offers ------------------------------------------------------------- */
@@ -1139,6 +1324,23 @@ details.more[open] > summary::before {
   gap: 12px;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+.share-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 6px;
+  min-height: 28px;
+}
+
+.share-note {
+  font-family: var(--display);
+  font-size: 12px;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--lime);
 }
 
 .table-scroll {

@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import type {
   Achievement,
   GameState,
+  OutcomeView,
   PendingDecision,
   PendingNews,
   PendingOffers,
@@ -8,6 +10,35 @@ import type {
 } from '../game/types';
 import { ROLE_LABELS, formatMoney } from '../game/contractEngine';
 import { ordinal } from '../game/seasonSimulator';
+
+/** One outcome row: odds chip, effect, and a clause of colour. */
+function OutcomeRow({
+  outcome,
+  certain,
+  state
+}: {
+  outcome: OutcomeView;
+  certain: boolean;
+  state?: 'idle' | 'rolling' | 'won' | 'lost';
+}) {
+  const classes = ['outcome', `tone-${outcome.tone}`];
+  if (state && state !== 'idle') classes.push(`is-${state}`);
+  return (
+    <div className={classes.join(' ')}>
+      {certain ? (
+        <span className="outcome-arrow" aria-hidden="true">
+          &rarr;
+        </span>
+      ) : (
+        <span className="outcome-chance">{outcome.percent}%</span>
+      )}
+      <span className="outcome-text">
+        <span className="outcome-effect">{outcome.effect}</span>
+        {outcome.detail ? <span className="outcome-detail">{outcome.detail}</span> : null}
+      </span>
+    </div>
+  );
+}
 
 /** A decision: the whole game, one card at a time. */
 export function DecisionCard({
@@ -23,24 +54,16 @@ export function DecisionCard({
       <h2 className="step-title">{step.title}</h2>
       <p className="step-body">{step.body}</p>
       <div className="options">
-        {step.options.map((option) => (
+        {step.options.map((option, index) => (
           <button key={option.id} className="option" onClick={() => onChoose(option.id)}>
+            <span className="option-index">{index + 1}</span>
             <div className="option-label">{option.label}</div>
             {option.detail ? <div className="option-detail">{option.detail}</div> : null}
-            {(option.pros?.length || option.cons?.length) ? (
-              <div className="option-effects">
-                {option.pros?.map((p) => (
-                  <span className="pro" key={p}>
-                    + {p}
-                  </span>
-                ))}
-                {option.cons?.map((c) => (
-                  <span className="con" key={c}>
-                    − {c}
-                  </span>
-                ))}
-              </div>
-            ) : null}
+            <div className="outcomes">
+              {option.outcomes.map((outcome) => (
+                <OutcomeRow key={outcome.id} outcome={outcome} certain={option.certain} />
+              ))}
+            </div>
           </button>
         ))}
       </div>
@@ -123,7 +146,102 @@ export function OffersCard({
   );
 }
 
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+
+/**
+ * The reveal. The outcome is already decided by the engine before this mounts —
+ * the cycling is presentation, not chance — but it is the beat that makes a
+ * 45% gamble feel like one. It decelerates into the row that actually landed,
+ * and is skipped entirely for anyone who asked for reduced motion.
+ */
+function RollReveal({ step, onContinue }: { step: PendingNews; onContinue: () => void }) {
+  const roll = step.roll!;
+  const resultIndex = Math.max(
+    0,
+    roll.outcomes.findIndex((o) => o.id === roll.resultId)
+  );
+  const [settled, setSettled] = useState(false);
+  const [active, setActive] = useState(0);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (prefersReducedMotion() || roll.outcomes.length < 2) {
+      setActive(resultIndex);
+      setSettled(true);
+      return;
+    }
+    let index = 0;
+    let delay = 80;
+    let elapsed = 0;
+    const tick = () => {
+      setActive(index % roll.outcomes.length);
+      // Once past the minimum spin, stop the moment we are on the real result.
+      if (elapsed > 850 && index % roll.outcomes.length === resultIndex) {
+        setSettled(true);
+        return;
+      }
+      index += 1;
+      elapsed += delay;
+      if (elapsed > 500) delay = Math.min(delay * 1.28, 320);
+      timer.current = window.setTimeout(tick, delay);
+    };
+    timer.current = window.setTimeout(tick, delay);
+    return () => window.clearTimeout(timer.current);
+    // The roll is fixed for the life of this card.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const skip = () => {
+    window.clearTimeout(timer.current);
+    setActive(resultIndex);
+    setSettled(true);
+  };
+
+  return (
+    <section className={`panel panel-pad step-card roll-card${settled ? ' is-settled' : ''}`}>
+      <div className="step-tag">{step.tag}</div>
+      <h2 className="step-title">{step.title}</h2>
+      <div className="roll-option">{roll.optionLabel}</div>
+
+      <div className="outcomes roll-outcomes" aria-live="polite">
+        {roll.outcomes.map((outcome, i) => (
+          <OutcomeRow
+            key={outcome.id}
+            outcome={outcome}
+            certain={false}
+            state={
+              settled
+                ? i === resultIndex
+                  ? 'won'
+                  : 'lost'
+                : i === active
+                  ? 'rolling'
+                  : 'idle'
+            }
+          />
+        ))}
+      </div>
+
+      {settled ? (
+        <>
+          <p className="step-body roll-note">{step.body}</p>
+          <button className="btn btn-primary" onClick={onContinue}>
+            {step.continueLabel}
+          </button>
+        </>
+      ) : (
+        <button className="btn btn-ghost roll-skip" onClick={skip}>
+          Skip
+        </button>
+      )}
+    </section>
+  );
+}
+
 export function NewsCard({ step, onContinue }: { step: PendingNews; onContinue: () => void }) {
+  if (step.roll) return <RollReveal key={step.roll.resultId + step.title} step={step} onContinue={onContinue} />;
   return (
     <section className="panel panel-pad step-card">
       <div className="step-tag">{step.tag}</div>

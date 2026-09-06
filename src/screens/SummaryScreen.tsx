@@ -11,9 +11,13 @@ import { formatMoney } from '../game/contractEngine';
 import { CareerTable } from '../components/CareerTable';
 import { AchievementBadge } from '../components/StepCard';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
+import { canShareImages, shareCareerCard, shareDataFor } from '../components/shareCard';
 
 export function SummaryScreen({ state, onRestart }: { state: GameState; onRestart: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareNote, setShareNote] = useState<string | null>(null);
+  const canShare = useMemo(() => canShareImages(), []);
   const totals = useMemo(() => computeTotals(state), [state]);
   const score = careerScore(state, totals);
   const title = careerTitle(state, totals);
@@ -95,7 +99,26 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
           </div>
           <div className="actions" style={{ marginTop: 18 }}>
             <button
-              className="btn"
+              className="btn btn-primary"
+              disabled={sharing}
+              onClick={async () => {
+                setSharing(true);
+                setShareNote(null);
+                const result = await shareCareerCard(shareDataFor(state));
+                setSharing(false);
+                if (result === 'downloaded') setShareNote('Image saved');
+                else if (result === 'failed') setShareNote('Could not create the image');
+              }}
+            >
+              {sharing ? 'Preparing…' : canShare ? 'Share career' : 'Save career image'}
+            </button>
+            <button className="btn" onClick={onRestart}>
+              Play again
+            </button>
+          </div>
+          <div className="share-actions">
+            <button
+              className="btn btn-ghost"
               onClick={() => {
                 navigator.clipboard?.writeText(shareText).then(
                   () => setCopied(true),
@@ -103,11 +126,9 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
                 );
               }}
             >
-              {copied ? 'Copied' : 'Copy share card'}
+              {copied ? 'Copied to clipboard' : 'Copy as text'}
             </button>
-            <button className="btn btn-primary" onClick={onRestart}>
-              Play again
-            </button>
+            {shareNote ? <span className="share-note">{shareNote}</span> : null}
           </div>
         </div>
 

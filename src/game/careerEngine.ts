@@ -128,7 +128,7 @@ export function chooseDecisionOption(state: GameState, optionId: string): GameSt
   const pending = next.pending;
   if (!pending || pending.kind !== 'decision') return next;
   const rng = new Rng(next.rngState);
-  const note = applyDecision(next, rng, pending.eventId, optionId);
+  const { note, roll } = applyDecision(next, rng, pending.eventId, optionId);
   next.decisionsUsed += 1;
   next.rngState = rng.snapshot();
   next.pending = null;
@@ -138,7 +138,8 @@ export function chooseDecisionOption(state: GameState, optionId: string): GameSt
     tag: pending.tag,
     title: pending.title,
     body: note || 'The season moves on.',
-    continueLabel: 'CONTINUE'
+    continueLabel: 'Continue',
+    roll
   };
   next.pending = outcome;
   next.cursor = advanceCursor(next.cursor);
@@ -177,7 +178,7 @@ export function declineOffers(state: GameState): GameState {
     tag: 'NO DRIVE',
     title: `${next.year} — NO SEAT`,
     body: 'You spend the season on the sidelines, doing simulator work and watching drivers you have beaten race on television.',
-    continueLabel: 'CONTINUE'
+    continueLabel: 'Continue'
   };
   next.cursor = 'advance';
   return next;
@@ -401,7 +402,7 @@ function advanceStage(state: GameState, rng: Rng): void {
       tag: 'REGULATIONS',
       title: regulation.title,
       body: `${regulation.blurb} Nobody will know who got it right until the cars run in February.`,
-      continueLabel: 'CONTINUE'
+      continueLabel: 'Continue'
     };
   }
 }
@@ -912,7 +913,7 @@ function retire(state: GameState, reason: string): GameState {
     tag: 'RETIREMENT',
     title: 'THAT IS THE CAREER',
     body: reason,
-    continueLabel: 'SEE YOUR CAREER'
+    continueLabel: 'See your career'
   };
   return state;
 }
