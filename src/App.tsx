@@ -5,7 +5,7 @@ import { createCareer } from './game/careerEngine';
 import { SetupScreen } from './screens/SetupScreen';
 import { CareerScreen } from './screens/CareerScreen';
 import { SummaryScreen } from './screens/SummaryScreen';
-import { initTelemetry, trackCareerEnd, trackCareerStart } from './game/telemetry';
+import { initTelemetry, trackCareerEnd, trackCareerStart, trackProgress } from './game/telemetry';
 import { computeTotals, careerScore, careerTitle } from './game/careerVerdict';
 
 export function App() {
@@ -51,5 +51,20 @@ export function App() {
     return <SummaryScreen state={state} onRestart={restart} />;
   }
 
-  return <CareerScreen state={state} onState={setState} onRestart={restart} />;
+  return (
+    <CareerScreen
+      state={state}
+      onState={(next) => {
+        trackProgress({
+          seasons: next.history.length,
+          series: next.reserveTeamId ? 'F1 reserve' : next.player.series,
+          age: next.player.age,
+          decisions: next.firedEvents.length,
+          reachedF1: next.history.some((h) => h.series === 'F1' && !h.reserveYear)
+        });
+        setState(next);
+      }}
+      onRestart={restart}
+    />
+  );
 }

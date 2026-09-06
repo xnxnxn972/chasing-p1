@@ -56,11 +56,29 @@ group by 1
 order by 1;
 
 -- ---- 5. Where careers are abandoned ---------------------------------------
--- seasons reached on careers that were NOT finished.
+-- Progress is refreshed as the career runs, so these are populated even when
+-- the player never reached the summary.
 select
-  seasons,
-  count(*) as abandoned
+  coalesce(meta->>'last_series', '?')                             as quit_in,
+  count(*)                                                        as abandoned,
+  round(avg(seasons), 1)                                          as avg_seasons_reached,
+  round(avg((meta->>'last_age')::int), 1)                         as avg_age_reached,
+  round(avg((meta->>'decisions')::int), 1)                        as avg_decisions,
+  round(avg(session_s))                                           as avg_seconds_before_quitting,
+  percentile_cont(0.5) within group (order by session_s)::int      as median_seconds
 from cp_sessions_log
 where env = 'prod' and driver_name is not null and finished = 0
 group by 1
-order by 1;
+order by abandoned desc;
+
+-- ---- 6. Time played, finished vs abandoned --------------------------------
+select
+  case when finished > 0 then 'finished' else 'abandoned' end     as outcome,
+  count(*)                                                        as n,
+  round(avg(session_s))                                           as avg_s,
+  percentile_cont(0.5) within group (order by session_s)::int      as median_s,
+  round(avg(active_s))                                            as avg_active_s,
+  round(avg(seasons), 1)                                          as avg_seasons
+from cp_sessions_log
+where env = 'prod' and driver_name is not null
+group by 1;

@@ -382,6 +382,30 @@ export function trackCareerStart(setup: {
   schedule();
 }
 
+/**
+ * Progress markers, refreshed as the career runs.
+ *
+ * Deliberately does NOT trigger a write: it only mutates the row, and the
+ * throttled activity ping and the page-hide flush carry it. Writing here would
+ * mean a request per click.
+ *
+ * Without this, `seasons` was only set when a career FINISHED, so every
+ * abandoned career logged zero — making "where do people quit" unanswerable.
+ */
+export function trackProgress(p: {
+  seasons: number;
+  series: string;
+  age: number;
+  decisions: number;
+  reachedF1: boolean;
+}): void {
+  row.seasons = p.seasons;
+  row.reached_f1 = p.reachedF1 || row.reached_f1;
+  row.meta.last_series = p.series;
+  row.meta.last_age = p.age;
+  row.meta.decisions = p.decisions;
+}
+
 export function trackCareerEnd(summary: {
   seasons: number;
   reachedF1: boolean;
