@@ -18,7 +18,11 @@ alter table public.cp_sessions add column if not exists meta jsonb not null defa
 create index if not exists cp_sessions_meta_idx on public.cp_sessions using gin (meta);
 
 -- Rebuild the readable view so the new columns show up in it.
-create or replace view public.cp_sessions_log as
+-- Dropped and recreated, not CREATE OR REPLACE: replacing a view can only
+-- append columns, so inserting device/platform mid-list fails with
+-- "cannot change name of view column". A view holds no data, so this is safe.
+drop view if exists public.cp_sessions_log;
+create view public.cp_sessions_log as
 select
   created_at,
   coalesce(driver_name, '(no career)')                as driver,
