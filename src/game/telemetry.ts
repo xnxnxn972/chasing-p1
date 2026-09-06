@@ -112,6 +112,38 @@ function newId(): string {
 
 const started = Date.now();
 
+/**
+ * Two different clocks, because they answer different questions.
+ *
+ *  duration_s        wall clock from page load to the last write. Includes the
+ *                    tab sitting idle or backgrounded.
+ *  meta.active_s     time the page was actually VISIBLE, accumulated across
+ *                    backgrounding. This is the "how long did they play" number.
+ *
+ * Visible-time is a proxy, not true engagement: a tab left open in the
+ * foreground while the player makes coffee still counts. Measuring real
+ * attention would need input tracking, which is not worth it here.
+ */
+let visibleSince = typeof document !== 'undefined' && document.visibilityState === 'visible'
+  ? Date.now()
+  : 0;
+let activeMs = 0;
+
+function pauseActive(): void {
+  if (visibleSince) {
+    activeMs += Date.now() - visibleSince;
+    visibleSince = 0;
+  }
+}
+
+function resumeActive(): void {
+  if (!visibleSince) visibleSince = Date.now();
+}
+
+function activeSeconds(): number {
+  return Math.round((activeMs + (visibleSince ? Date.now() - visibleSince : 0)) / 1000);
+}
+
 const row: SessionRow = {
   session_id: newId(),
   env: typeof location !== 'undefined' && /^(localhost|127\.|\[?::1)/.test(location.hostname) ? 'dev' : 'prod',
@@ -192,6 +224,7 @@ function isUnknownColumn(status: number, body: string): boolean {
 
 async function push(keepalive = false): Promise<void> {
   row.duration_s = Math.round((Date.now() - started) / 1000);
+  row.meta.active_s = activeSeconds();
   try {
     if (!inserted) {
       // A plain insert, deliberately NOT an upsert. `resolution=merge-duplicates`
@@ -253,10 +286,20 @@ export function initTelemetry(): void {
   // `visibilitychange` is the only event that fires reliably when a mobile
   // browser is backgrounded or the tab is closed; `pagehide` covers the rest.
   const flush = () => {
-    if (document.visibilityState === 'hidden') void push(true);
+    if (document.visibilityState === 'hidden') {
+      // Stop the active clock BEFORE writing, so the flushed row does not bill
+      // the player for time spent with the tab in the background.
+      pauseActive();
+      void push(true);
+    } else {
+      resumeActive();
+    }
   };
   document.addEventListener('visibilitychange', flush);
-  window.addEventListener('pagehide', () => void push(true));
+  window.addEventListener('pagehide', () => {
+    pauseActive();
+    void push(true);
+  });
 }
 
 export function trackCareerStart(setup: {
@@ -314,5 +357,9 @@ export function trackShare(result: string): void {
 
 /** For debugging from the console. */
 export function telemetrySnapshot(): SessionRow {
-  return { ...row, duration_s: Math.round((Date.now() - started) / 1000) };
+  return {
+    ...row,
+    duration_s: Math.round((Date.now() - started) / 1000),
+    meta: { ...row.meta, active_s: activeSeconds() }
+  };
 }
