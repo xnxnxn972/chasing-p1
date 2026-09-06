@@ -47,7 +47,9 @@ create table if not exists public.cp_sessions (
   city            text,
   user_agent      text,
   screen          text,
-  referrer        text
+  referrer        text,
+  device          text,          -- mobile | tablet | desktop
+  platform        text           -- iOS | Android | Windows | macOS | Linux | ChromeOS
 );
 
 create index if not exists cp_sessions_created_at_idx on public.cp_sessions (created_at desc);
@@ -83,6 +85,8 @@ create or replace view public.cp_sessions_log as
 select
   created_at,
   coalesce(driver_name, '(no career)')                as driver,
+  device,
+  platform,
   country,
   city,
   duration_s,

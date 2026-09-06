@@ -52,6 +52,45 @@ export interface SessionRow {
   user_agent: string | null;
   screen: string | null;
   referrer: string | null;
+  /** 'mobile' | 'tablet' | 'desktop'. */
+  device: string | null;
+  /** 'iOS' | 'Android' | 'Windows' | 'macOS' | 'Linux' | 'ChromeOS' | 'other'. */
+  platform: string | null;
+}
+
+/**
+ * What they played on. Two traps this handles:
+ *  - iPadOS 13+ sends a desktop Safari user agent; only the touch-point count
+ *    gives it away, so an iPad would otherwise log as a Mac.
+ *  - Android tablets send "Android" without "Mobile", which is the only thing
+ *    separating them from phones.
+ */
+function detectDevice(): { device: string; platform: string } {
+  if (typeof navigator === 'undefined') return { device: 'unknown', platform: 'unknown' };
+  const uaData = (navigator as Navigator & { userAgentData?: { mobile?: boolean; platform?: string } })
+    .userAgentData;
+  const ua = navigator.userAgent || '';
+  const touch = navigator.maxTouchPoints ?? 0;
+
+  const isIPadOS = /Macintosh/.test(ua) && touch > 1;
+  const isIOS = /iPhone|iPod|iPad/.test(ua) || isIPadOS;
+  const isAndroid = /Android/.test(ua);
+
+  let platform: string;
+  if (isIOS) platform = 'iOS';
+  else if (isAndroid) platform = 'Android';
+  else if (/Windows/.test(ua)) platform = 'Windows';
+  else if (/CrOS/.test(ua)) platform = 'ChromeOS';
+  else if (/Mac OS X|Macintosh/.test(ua)) platform = 'macOS';
+  else if (/Linux/.test(ua)) platform = 'Linux';
+  else platform = uaData?.platform || 'other';
+
+  let device: string;
+  if (/iPad/.test(ua) || isIPadOS || (isAndroid && !/Mobile/.test(ua))) device = 'tablet';
+  else if (isIOS || isAndroid || /Mobi/.test(ua) || uaData?.mobile === true) device = 'mobile';
+  else device = 'desktop';
+
+  return { device, platform };
 }
 
 function newId(): string {
@@ -88,7 +127,8 @@ const row: SessionRow = {
   city: null,
   user_agent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 300) : null,
   screen: typeof window !== 'undefined' ? `${window.screen?.width ?? 0}x${window.screen?.height ?? 0}` : null,
-  referrer: typeof document !== 'undefined' ? document.referrer.slice(0, 300) || null : null
+  referrer: typeof document !== 'undefined' ? document.referrer.slice(0, 300) || null : null,
+  ...detectDevice()
 };
 
 let inserted = false;
@@ -118,6 +158,27 @@ async function lookupGeo(): Promise<void> {
   }
 }
 
+/**
+ * Columns the table might not have yet. PostgREST rejects an insert naming an
+ * unknown column outright, so a schema migration that has not been run would
+ * otherwise stop all logging silently. On that specific failure we drop the
+ * newest fields and send the rest, and remember to keep doing so.
+ */
+const OPTIONAL_FIELDS: (keyof SessionRow)[] = ['device', 'platform'];
+let dropOptional = false;
+
+function payload(): Partial<SessionRow> {
+  if (!dropOptional) return row;
+  const copy: Partial<SessionRow> = { ...row };
+  for (const key of OPTIONAL_FIELDS) delete copy[key];
+  return copy;
+}
+
+/** True when the failure is "that column does not exist". */
+function isUnknownColumn(status: number, body: string): boolean {
+  return status === 400 && /PGRST204|column .* does not exist|Could not find the/i.test(body);
+}
+
 async function push(keepalive = false): Promise<void> {
   row.duration_s = Math.round((Date.now() - started) / 1000);
   try {
@@ -126,21 +187,33 @@ async function push(keepalive = false): Promise<void> {
       // turns this into INSERT ... ON CONFLICT DO UPDATE, which needs SELECT
       // rights on the table — and the log intentionally grants none, so Postgres
       // rejects it as an RLS violation. session_id is unique per session anyway.
-      const res = await fetch(REST, {
+      let res = await fetch(REST, {
         method: 'POST',
         headers: headers({ Prefer: 'return=minimal' }),
-        body: JSON.stringify(row),
+        body: JSON.stringify(payload()),
         keepalive
       });
+      if (!res.ok && !dropOptional && isUnknownColumn(res.status, await res.clone().text())) {
+        dropOptional = true;
+        res = await fetch(REST, {
+          method: 'POST',
+          headers: headers({ Prefer: 'return=minimal' }),
+          body: JSON.stringify(payload()),
+          keepalive
+        });
+      }
       if (res.ok) inserted = true;
       return;
     }
-    await fetch(`${REST}?session_id=eq.${encodeURIComponent(row.session_id)}`, {
+    const res = await fetch(`${REST}?session_id=eq.${encodeURIComponent(row.session_id)}`, {
       method: 'PATCH',
       headers: headers({ Prefer: 'return=minimal' }),
-      body: JSON.stringify(row),
+      body: JSON.stringify(payload()),
       keepalive
     });
+    if (!res.ok && !dropOptional && isUnknownColumn(res.status, await res.clone().text())) {
+      dropOptional = true;
+    }
   } catch {
     // Telemetry is never allowed to surface to the player.
   }
