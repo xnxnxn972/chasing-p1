@@ -12,7 +12,10 @@
 -- ============================================================================
 
 create table if not exists public.cp_sessions (
-  session_id      uuid        primary key,
+  -- text, not uuid: the client falls back to a non-UUID id on browsers where
+  -- crypto.randomUUID() is unavailable, and a type mismatch there would make
+  -- the insert fail silently.
+  session_id      text        primary key,
   created_at      timestamptz not null default now(),
   env             text        not null default 'prod',
   started_at      timestamptz,
