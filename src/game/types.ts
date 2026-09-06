@@ -83,6 +83,8 @@ export interface SimDriver {
   starts: number;
   /** Seasons the player has finished ahead of / behind this driver. */
   clashes: number;
+  /** -10..+10 momentum, same scale and same effect as the player's. */
+  form: number;
   isPlayer?: boolean;
 }
 

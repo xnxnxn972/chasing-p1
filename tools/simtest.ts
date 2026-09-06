@@ -24,6 +24,16 @@ const greedy: Picker = {
     return best;
   }
 };
+/**
+ * A min-maxing player: tries every option, keeps the one that leaves the driver
+ * strongest. This is the CEILING of engaged play — the cohort that matters when
+ * asking "is a stellar career too easy?".
+ */
+const optimiser: Picker = {
+  decision: () => 0, // unused; handled by autoplay's lookahead
+  offer: greedy.offer
+};
+
 const arbitrary: Picker = {
   decision: (n, i) => (i * 3 + 1) % n,
   offer: (o, i) => (i * 5) % o.length
@@ -31,13 +41,38 @@ const arbitrary: Picker = {
 
 let lastClicks = 0;
 
-function autoplay(seed: string, style: any, pick: Picker, i: number): GameState {
+/** How strong the driver is left after a decision — the optimiser's yardstick. */
+function strength(s: GameState): number {
+  const team = s.teams[s.player.teamId];
+  return (
+    s.player.overall * 4 +
+    s.player.potential * 3 +
+    s.player.career.reputation * 0.6 +
+    s.player.form * 0.5 +
+    (team ? team.carPerformance * 0.8 : 0)
+  );
+}
+
+function autoplay(seed: string, style: any, pick: Picker, i: number, optimise = false): GameState {
   let s = createCareer({ name: 'Test Driver', number: 27, nationality: 'IL', style, seed });
   let guard = 0;
   while (!s.finished && guard++ < 400) {
     const p = s.pending;
     if (!p) { s = continueStep(s); continue; }
-    if (p.kind === 'decision') s = chooseDecisionOption(s, p.options[pick.decision(p.options.length, i)].id);
+    if (p.kind === 'decision') {
+      if (optimise) {
+        let best: GameState | null = null;
+        let bestScore = -Infinity;
+        for (const option of p.options) {
+          const trial = chooseDecisionOption(s, option.id);
+          const score = strength(trial);
+          if (score > bestScore) { bestScore = score; best = trial; }
+        }
+        s = best!;
+      } else {
+        s = chooseDecisionOption(s, p.options[pick.decision(p.options.length, i)].id);
+      }
+    }
     else if (p.kind === 'offers') s = chooseOffer(s, p.offers[pick.offer(p.offers, i)].id);
     else s = continueStep(s);
   }
@@ -47,11 +82,12 @@ function autoplay(seed: string, style: any, pick: Picker, i: number): GameState 
 }
 
 const styles = ['speed', 'technical', 'physical'];
-function cohort(label: string, pick: Picker, N = 150) {
-  let reachedF1 = 0, champs = 0, multi = 0, totalScore = 0, wins = 0, seasons = 0, clicks = 0, decisions = 0, peakAges = 0;
+function cohort(label: string, pick: Picker, N = 150, optimise = false) {
+  let reachedF1 = 0, champs = 0, multi = 0, totalScore = 0, wins = 0, seasons = 0, clicks = 0, decisions = 0, peakAges = 0, peakOvrSum = 0, maxTitles = 0, maxWins = 0;
+  const titleHist: Record<number, number> = {};
   const titleCounts: Record<string, number> = {};
   for (let i = 0; i < N; i++) {
-    const s = autoplay('SEED' + i, styles[i % 3], pick, i);
+    const s = autoplay('SEED' + i, styles[i % 3], pick, i, optimise);
     const t = computeTotals(s);
     if (t.f1Starts > 0) reachedF1++;
     if (t.titles > 0) champs++;
@@ -64,6 +100,10 @@ function cohort(label: string, pick: Picker, N = 150) {
     let best = 0, bestAge = 0;
     for (const h of s.history) if (h.driverOverallEnd > best) { best = h.driverOverallEnd; bestAge = h.age; }
     peakAges += bestAge;
+    peakOvrSum += best;
+    titleHist[t.titles] = (titleHist[t.titles] || 0) + 1;
+    if (t.titles > maxTitles) maxTitles = t.titles;
+    if (t.f1Wins > maxWins) maxWins = t.f1Wins;
     totalScore += careerScore(s, t);
     const title = careerTitle(s, t);
     titleCounts[title] = (titleCounts[title] || 0) + 1;
@@ -72,9 +112,15 @@ function cohort(label: string, pick: Picker, N = 150) {
   console.log(` reached F1 ${Math.round(reachedF1/N*100)}% | >=1 title ${Math.round(champs/N*100)}% | >=3 titles ${Math.round(multi/N*100)}%`);
   console.log(` avg F1 wins ${(wins/N).toFixed(1)} | avg seasons ${(seasons/N).toFixed(1)} | avg score ${Math.round(totalScore/N)}`);
   console.log(` avg clicks/career ${(clicks/N).toFixed(0)} | decisions/season ${(decisions/seasons).toFixed(2)} | avg peak age ${(peakAges/N).toFixed(1)}`);
+  console.log(` avg peak OVR ${(peakOvrSum/N).toFixed(1)} | WORST CASE: ${maxTitles} titles, ${maxWins} wins`);
+  const dyn = Object.entries(titleHist).filter(([k]) => Number(k) >= 6).reduce((a, [, v]) => a + v, 0);
+  const five = Object.entries(titleHist).filter(([k]) => Number(k) >= 4).reduce((a, [, v]) => a + v, 0);
+  console.log(` titles: ${Object.keys(titleHist).map(Number).sort((a,b)=>a-b).map(k=>`${k}x${titleHist[k]}`).join(' ')}`);
+  console.log(` >=4 titles ${Math.round(five/N*100)}% | >=6 titles (dynasty) ${Math.round(dyn/N*100)}%`);
   console.log(' ', Object.entries(titleCounts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · '));
 }
 
+cohort('OPTIMISER (fastest car + best option every time)', optimiser, 120, true);
 cohort('greedy (always takes the fastest car offered)', greedy);
 cohort('arbitrary choices', arbitrary);
 

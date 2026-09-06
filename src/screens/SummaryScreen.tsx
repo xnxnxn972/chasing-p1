@@ -12,6 +12,7 @@ import { CareerTable } from '../components/CareerTable';
 import { AchievementBadge } from '../components/StepCard';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
 import { canShareImages, gameUrl, shareCareerCard, shareDataFor } from '../components/shareCard';
+import { trackShare } from '../game/telemetry';
 
 export function SummaryScreen({ state, onRestart }: { state: GameState; onRestart: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -106,6 +107,7 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
                 setSharing(true);
                 setShareNote(null);
                 const result = await shareCareerCard(shareDataFor(state));
+                trackShare(result);
                 setSharing(false);
                 if (result === 'downloaded') setShareNote('Image saved');
                 else if (result === 'failed') setShareNote('Could not create the image');
@@ -121,6 +123,7 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
             <button
               className="btn btn-ghost"
               onClick={() => {
+                trackShare('copied');
                 navigator.clipboard?.writeText(shareText).then(
                   () => setCopied(true),
                   () => setCopied(false)

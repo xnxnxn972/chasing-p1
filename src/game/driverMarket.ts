@@ -47,7 +47,8 @@ export function createSimDriver(
   const identity = randomIdentity(rng);
   const style = rng.pick(STYLES);
   const potential =
-    opts.potential ?? clamp(Math.round(opts.overall + rng.range(2, 26) - (opts.age - 18) * 0.9), opts.overall, 98);
+    opts.potential ??
+    clamp(Math.round(opts.overall + rng.range(2, 22) - (opts.age - 18) * 0.9), opts.overall, 95);
   const stats = statsFromOverall(opts.overall, style, rng);
   return {
     id: nextId('drv'),
@@ -66,7 +67,8 @@ export function createSimDriver(
     podiums: 0,
     poles: 0,
     starts: 0,
-    clashes: 0
+    clashes: 0,
+    form: 0
   };
 }
 
@@ -150,11 +152,15 @@ export function progressAiDrivers(state: GameState, rng: Rng): SimDriver[] {
         potential: driver.potential,
         style: driver.style,
         environment: team ? (team.series === 'F1' ? team.development : team.juniorDevelopment) : 55,
-        seasonQuality: rng.range(-0.4, 0.5)
+        // A driver in a quick car has a good season and develops like it —
+        // the same loop the player benefits from, so the top of the field
+        // keeps pace instead of being left behind.
+        seasonQuality: clamp((team ? team.carPerformance - 70 : 0) / 22, -1, 1) * 0.8 + rng.range(-0.3, 0.3)
       },
       rng
     );
     driver.overall = overallOf(driver.stats);
+    driver.form *= 0.5;
 
     if (rng.chance(retirementChance(driver, Boolean(driver.teamId)))) {
       retired.push(driver);

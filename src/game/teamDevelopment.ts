@@ -45,7 +45,7 @@ export function planRegulationYears(startYear: number, rng: Rng): number[] {
   let year = startYear + rng.int(3, 5);
   while (year < startYear + 32) {
     years.push(year);
-    year += rng.int(4, 6);
+    year += rng.int(3, 5);
   }
   return years;
 }
@@ -60,8 +60,8 @@ export function buildRegulationShift(
   for (const id of F1_TEAM_IDS) {
     const team = teams[id];
     // Strong technical departments are more likely — not guaranteed — to nail it.
-    const skill = (team.development - 72) / 18;
-    effects[id] = Math.round(clamp(rng.gauss(skill, 6), -14, 15));
+    const skill = (team.development - 72) / 16;
+    effects[id] = Math.round(clamp(rng.gauss(skill, 8.5), -18, 19));
   }
   return { year, title: flavour.title, blurb: flavour.blurb, effects };
 }
@@ -85,8 +85,16 @@ export function evolveTeams(
     const developmentEffect = ((team.development - 66) / 34) * 2.0;
     const drift = rng.gauss(0, 2.6);
     // Mean reversion: dominance decays, backmarkers eventually recover.
-    const regression = (70 - team.carPerformance) * 0.085;
+    const regression = (70 - team.carPerformance) * 0.11;
     const regChange = options.regulation ? options.regulation.effects[id] ?? 0 : 0;
+
+    // A rule change genuinely re-deals the hand: the field compresses toward the
+    // middle first, THEN takes the shock. Adding a delta on its own left the
+    // order almost intact, which is how a team could stay fastest for twenty
+    // straight years and hand the player a title every time.
+    if (options.regulation) {
+      team.carPerformance += (70 - team.carPerformance) * 0.38;
+    }
 
     team.carPerformance = clamp(
       team.carPerformance + developmentEffect + drift + regression + regChange,

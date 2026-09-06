@@ -127,7 +127,7 @@ export function developStats(input: DevelopmentInput, rng: Rng): DriverStats {
   const { stats, age, potential, style, environment, seasonQuality } = input;
   const modifier = input.modifier ?? 1;
   const factor = growthFactor(age);
-  const quality = clamp(0.6 + environment / 160 + seasonQuality * 0.25, 0.3, 1.5) * modifier;
+  const quality = clamp(0.6 + environment / 160 + seasonQuality * 0.14, 0.3, 1.5) * modifier;
 
   const next = {} as DriverStats;
   for (const key of STAT_KEYS) {

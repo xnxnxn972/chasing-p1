@@ -7,7 +7,7 @@ import type {
   SimDriver
 } from '../game/types';
 import { Rng, clamp } from '../game/random';
-import { overallOf } from '../game/driverDevelopment';
+import { overallOf, styleCeiling } from '../game/driverDevelopment';
 
 /**
  * The shape of a decision, and the effect helpers every event uses.
@@ -95,7 +95,16 @@ export function optionOutcomes(option: DecisionOptionDef): DecisionOutcomeDef[] 
 // ---------------------------------------------------------------------------
 
 export function stat(state: GameState, key: keyof DriverStats, amount: number): void {
-  state.player.stats[key] = clamp(Math.round((state.player.stats[key] + amount) * 10) / 10, 20, 99);
+  const current = state.player.stats[key];
+  let next = current + amount;
+  if (amount > 0) {
+    // Decisions shape WHICH attributes grow and how fast they get there, but
+    // they cannot lift a driver past the ceiling his hidden potential sets.
+    // Without this, one decision a season compounds into a 98 for anybody.
+    const ceiling = state.player.potential + styleCeiling(state.player.style, key) + 3;
+    next = Math.min(next, Math.max(current, ceiling));
+  }
+  state.player.stats[key] = clamp(Math.round(next * 10) / 10, 20, 99);
   state.player.overall = overallOf(state.player.stats);
 }
 

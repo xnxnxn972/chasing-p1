@@ -87,7 +87,12 @@ export function createCareer(setup: CareerSetup): GameState {
       // Hidden, and skewed: most sixteen-year-olds top out short of a Formula 1
       // seat, and a few are generational. Two identical setups are not the
       // same driver.
-      potential: Math.round(clamp(72 + Math.pow(rng.next(), 1.5) * 27, 72, 97)),
+      //
+      // The top of this range is deliberately tight. A potential of 95+ used to
+      // mean a driver the field simply could not live with — and since one in
+      // ten rolls landed there, one career in ten became a fifteen-title
+      // dynasty. Real grids bunch at the top; this one does too now.
+      potential: Math.round(clamp(72 + Math.pow(rng.next(), 1.6) * 23, 72, 95)),
       form: 0,
       career: { reputation: 12, marketability: 8, teamRelationship: 50, wealth: 0 },
       series: 'F4',
@@ -460,7 +465,7 @@ function f1Field(state: GameState): Entrant[] {
         fitness: d.stats.fitness,
         carPerformance: team.carPerformance,
         reliability: team.reliability,
-        form: 0,
+        form: d.form,
         isPlayer: false
       });
     }
@@ -642,6 +647,9 @@ function updateAiCareers(state: GameState, standings: StandingRow[], races: numb
       10,
       99
     );
+    // Momentum on the same terms as the player's, so a champion's confidence
+    // bonus is not something only the player is ever allowed to carry.
+    d.form = clamp(1 - (index / (standings.length - 1)) * 2, -1, 1) * 6;
   });
 }
 

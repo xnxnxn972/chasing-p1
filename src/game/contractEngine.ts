@@ -155,13 +155,16 @@ export function f1Interest(state: GameState, rng: Rng): F1TeamId[] {
       .map((s) => state.drivers[s])
       .filter(Boolean)
       .sort((a, b) => a.overall - b.overall)[0];
-    // A team with no free seat will move a driver aside, but only for someone
-    // clearly better on ability — not for a well-marketed 84.
-    const canDisplace = weakestOther ? ability > weakestOther.overall + 6 : false;
+    const bar = interestBar(state, team);
+    // A team only moves a driver aside if that driver is genuinely below what
+    // the team demands. Two drivers who are doing the job means there is no
+    // seat, however good you are — which is what stops a great driver simply
+    // walking into whichever car is fastest, year after year.
+    const canDisplace = weakestOther
+      ? weakestOther.overall < bar - 1 && ability > weakestOther.overall + 6
+      : false;
     if (!hasFreeSeat && !canDisplace) continue;
-
-    const bar = interestBar(state, team) + (hasFreeSeat ? 0 : 6);
-    if (appeal + rng.gauss(0, 4.5) > bar) out.push(teamId);
+    if (appeal + rng.gauss(0, 4.5) > bar + (hasFreeSeat ? 0 : 6)) out.push(teamId);
   }
   return out;
 }
