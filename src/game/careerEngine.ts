@@ -103,6 +103,8 @@ export function createCareer(setup: CareerSetup): GameState {
     achievements: [],
     relationships,
     firedEvents: [],
+    decisionBudget: 1,
+    decisionsUsed: 0,
     pending: null,
     log: [],
     retirementOffered: false,
@@ -112,6 +114,7 @@ export function createCareer(setup: CareerSetup): GameState {
     finished: false
   };
 
+  openSeason(state, rng);
   state.rngState = rng.snapshot();
   return step(state);
 }
@@ -126,6 +129,7 @@ export function chooseDecisionOption(state: GameState, optionId: string): GameSt
   if (!pending || pending.kind !== 'decision') return next;
   const rng = new Rng(next.rngState);
   const note = applyDecision(next, rng, pending.eventId, optionId);
+  next.decisionsUsed += 1;
   next.rngState = rng.snapshot();
   next.pending = null;
   if (note) next.log.push(note);
@@ -216,6 +220,20 @@ function advanceCursor(cursor: GameState['cursor']): GameState['cursor'] {
   }
 }
 
+/**
+ * A season asks for one decision, and only sometimes two. Three separate coin
+ * flips used to average north of two a year, which made a career a long series
+ * of small prompts rather than a short series of real ones.
+ */
+function canDecide(state: GameState): boolean {
+  return state.decisionsUsed < state.decisionBudget;
+}
+
+function openSeason(state: GameState, rng: Rng): void {
+  state.decisionBudget = rng.chance(0.3) ? 2 : 1;
+  state.decisionsUsed = 0;
+}
+
 /** Run stages until one produces something for the player to look at. */
 function step(state: GameState): GameState {
   let guard = 0;
@@ -228,12 +246,16 @@ function step(state: GameState): GameState {
         break;
       }
       case 'preseason': {
-        if (rng.chance(0.7)) state.pending = nextDecision(state, rng, 'preseason');
+        if (canDecide(state) && rng.chance(0.45)) {
+          state.pending = nextDecision(state, rng, 'preseason');
+        }
         if (!state.pending) state.cursor = 'midseason';
         break;
       }
       case 'midseason': {
-        if (rng.chance(0.8)) state.pending = nextDecision(state, rng, 'midseason');
+        if (canDecide(state) && rng.chance(0.6)) {
+          state.pending = nextDecision(state, rng, 'midseason');
+        }
         if (!state.pending) state.cursor = 'race';
         break;
       }
@@ -243,7 +265,9 @@ function step(state: GameState): GameState {
         break;
       }
       case 'offseason': {
-        if (rng.chance(0.65)) state.pending = nextDecision(state, rng, 'offseason');
+        if (canDecide(state) && rng.chance(0.5)) {
+          state.pending = nextDecision(state, rng, 'offseason');
+        }
         if (!state.pending) state.cursor = 'advance';
         break;
       }
@@ -369,6 +393,7 @@ function advanceStage(state: GameState, rng: Rng): void {
   state.player.form = state.player.form * 0.5;
 
   state.cursor = 'contract';
+  openSeason(state, rng);
 
   if (regulation) {
     state.pending = {
@@ -731,6 +756,8 @@ function ladderExhausted(state: GameState): boolean {
   if (seasonsHere >= 3 && ladderTarget(state) === series) return true;
   if (state.player.age >= 21 && series === 'F4') return true;
   if (state.player.age >= 23 && series === 'F3') return true;
+  // Six years of junior racing without a Formula 1 seat is the whole answer.
+  if (state.history.filter((h) => h.series !== 'F1').length >= 6) return true;
   return false;
 }
 
@@ -755,7 +782,10 @@ function buildOffers(state: GameState, rng: Rng): ContractOffer[] {
     const reserveTeam = [...F1_TEAM_IDS]
       .sort((a, b) => (state.relationships[b] ?? 0) - (state.relationships[a] ?? 0))
       .find((id) => appeal + (state.relationships[id] ?? 0) * 0.1 > 66);
-    if (reserveTeam && state.player.age <= 36) offers.push(makeReserveOffer(state, reserveTeam));
+    // Reserve is a young driver's way in, not an old driver's waiting room. A
+    // veteran with no race seat is out of the sport, which is what actually
+    // ends most careers.
+    if (reserveTeam && state.player.age <= 27) offers.push(makeReserveOffer(state, reserveTeam));
   }
 
   // The junior ladder stays open while the player is young enough and is still

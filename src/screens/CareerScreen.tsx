@@ -27,7 +27,6 @@ export function CareerScreen({
             {state.reserveTeamId ? 'F1 Reserve' : state.player.series}
           </span>
           <span className="badge">Age {state.player.age}</span>
-          <span className="badge">Seed {state.seed}</span>
         </div>
         <button className="btn btn-ghost" onClick={onRestart}>
           Abandon career

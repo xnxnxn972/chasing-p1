@@ -64,7 +64,8 @@ The UI only ever sees `state.pending`, which is one of four card types:
 
 ### Determinism
 
-Everything comes from `gameSeed`. `GameState.rngState` is the serialisable
+Everything comes from `gameSeed`, which is generated silently at career creation
+and never shown — the player has no seed to think about. `GameState.rngState` is the serialisable
 position in the stream, so each transition rehydrates an `Rng`, uses it, and
 writes the position back. Same seed + same decisions = same career, which is
 what a future daily-seed mode would be built on.
@@ -108,15 +109,26 @@ makes a Formula 1 seat something to win rather than something to reach.
 
 Measured over 150 auto-played careers per cohort — run `npm run balance` (`tools/simtest.ts`):
 
-| | reaches F1 | ≥1 title | ≥3 titles | avg F1 wins | avg seasons |
-| --- | --- | --- | --- | --- | --- |
-| Always takes the fastest car offered | 90% | 45% | 31% | 48 | 23 |
-| Arbitrary choices | 82% | 27% | 17% | 22 | 21 |
+| | reaches F1 | ≥1 title | ≥3 titles | avg F1 wins | seasons | clicks |
+| --- | --- | --- | --- | --- | --- | --- |
+| Always takes the fastest car offered | 76% | 36% | 29% | 33 | 17 | 66 |
+| Arbitrary choices | 71% | 19% | 11% | 13 | 15 | 58 |
+
+A whole career is around 60 clicks. Pacing is controlled by an explicit
+per-season decision budget — one decision most seasons, two about a third of the
+time — rather than by independent per-phase probabilities, which used to average
+north of two and made a career a long series of small prompts.
 
 The junior ladder is the main filter: promotion needs results (top 6 in F4, top 5
-in F3), and three seasons without moving up ends the career. Hidden potential is
-skewed (72–97, most drivers in the high seventies), so plenty of careers stall
-before Formula 1.
+in F3), three seasons without moving up ends the career, and six junior seasons
+without a Formula 1 seat ends it outright. Hidden potential is skewed (72–97,
+most drivers in the high seventies), so plenty of careers stall before F1.
+
+Drivers peak at 30 and lose raw pace from 31 — quickly, since pace carries the
+most weight in OVR. Racecraft barely moves and the thinking attributes keep
+improving to the late thirties, which is what lets a veteran still be worth a
+seat. Reserve roles are capped at 27 so a declining driver leaves the sport
+instead of padding out empty seasons.
 
 ## Look and feel
 

@@ -283,6 +283,9 @@ export interface GameState {
   achievements: Achievement[];
   relationships: Record<F1TeamId, number>;
   firedEvents: string[];
+  /** Decisions this season is allowed to ask for, and how many it has used. */
+  decisionBudget: number;
+  decisionsUsed: number;
   pending: PendingStep | null;
   log: string[];
   /** Set while the player is an F1 reserve rather than a race driver. */

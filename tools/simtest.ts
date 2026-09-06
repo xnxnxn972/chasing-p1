@@ -29,6 +29,8 @@ const arbitrary: Picker = {
   offer: (o, i) => (i * 5) % o.length
 };
 
+let lastClicks = 0;
+
 function autoplay(seed: string, style: any, pick: Picker, i: number): GameState {
   let s = createCareer({ name: 'Test Driver', number: 27, nationality: 'IL', style, seed });
   let guard = 0;
@@ -40,12 +42,13 @@ function autoplay(seed: string, style: any, pick: Picker, i: number): GameState 
     else s = continueStep(s);
   }
   if (guard >= 400) throw new Error('career did not terminate for seed ' + seed);
+  lastClicks = guard;
   return s;
 }
 
 const styles = ['speed', 'technical', 'physical'];
 function cohort(label: string, pick: Picker, N = 150) {
-  let reachedF1 = 0, champs = 0, multi = 0, totalScore = 0, wins = 0, seasons = 0;
+  let reachedF1 = 0, champs = 0, multi = 0, totalScore = 0, wins = 0, seasons = 0, clicks = 0, decisions = 0, peakAges = 0;
   const titleCounts: Record<string, number> = {};
   for (let i = 0; i < N; i++) {
     const s = autoplay('SEED' + i, styles[i % 3], pick, i);
@@ -55,6 +58,12 @@ function cohort(label: string, pick: Picker, N = 150) {
     if (t.titles > 2) multi++;
     wins += t.f1Wins;
     seasons += s.history.length;
+    clicks += lastClicks;
+    decisions += s.firedEvents.length;
+    // Age at which the driver hit their highest rating.
+    let best = 0, bestAge = 0;
+    for (const h of s.history) if (h.driverOverallEnd > best) { best = h.driverOverallEnd; bestAge = h.age; }
+    peakAges += bestAge;
     totalScore += careerScore(s, t);
     const title = careerTitle(s, t);
     titleCounts[title] = (titleCounts[title] || 0) + 1;
@@ -62,6 +71,7 @@ function cohort(label: string, pick: Picker, N = 150) {
   console.log(`\n== ${label} (n=${N}) ==`);
   console.log(` reached F1 ${Math.round(reachedF1/N*100)}% | >=1 title ${Math.round(champs/N*100)}% | >=3 titles ${Math.round(multi/N*100)}%`);
   console.log(` avg F1 wins ${(wins/N).toFixed(1)} | avg seasons ${(seasons/N).toFixed(1)} | avg score ${Math.round(totalScore/N)}`);
+  console.log(` avg clicks/career ${(clicks/N).toFixed(0)} | decisions/season ${(decisions/seasons).toFixed(2)} | avg peak age ${(peakAges/N).toFixed(1)}`);
   console.log(' ', Object.entries(titleCounts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · '));
 }
 

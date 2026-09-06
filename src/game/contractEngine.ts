@@ -54,9 +54,9 @@ export function playerAppeal(state: GameState): number {
   const youth = clamp(30 - p.age, -12, 12);
   // The bonus is deliberately capped: results and youth get a driver looked at,
   // they do not turn an 85 into a 97 on paper.
-  // Past the mid-thirties a team is buying declining years, and prices them in
-  // on top of whatever the driver's rating has already lost.
-  const agePenalty = p.age > 34 ? (p.age - 34) * 1.6 : 0;
+  // From the early thirties a team is buying declining years, and prices them
+  // in on top of whatever the driver's rating has already lost.
+  const agePenalty = p.age > 31 ? (p.age - 31) * 1.6 : 0;
   const bonus =
     (p.career.reputation - 50) * 0.1 +
     form * 4 +

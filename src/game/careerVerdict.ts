@@ -102,10 +102,14 @@ export function careerTitle(state: GameState, totals: CareerTotals): string {
   if (firstWin && firstWin.age >= 30) return 'THE LATE BLOOMER';
   if (state.player.style === 'physical' && totals.f1Wins >= 6) return 'THE RAINMASTER';
   if (peak >= 90 && totals.f1Wins === 0) return 'THE WHAT-IF';
-  if (totals.f1Starts >= 250) return 'THE SURVIVOR';
+  // Longevity is about the age you were still racing at, not the start count:
+  // with a 24-race calendar, 250 starts is only eleven ordinary seasons.
+  if (seasons.length >= 10 && (seasons[seasons.length - 1]?.age ?? 0) >= 37) return 'THE SURVIVOR';
   if (teamsUsed.size >= 5) return 'THE TEAM HOPPER';
   if (teamsUsed.size === 1 && seasons.length >= 6) return 'THE LOYALIST';
-  if (state.history.some((h) => h.reserveYear) && seasons.length <= 2) return 'THE SUPER-SUB';
+  // Genuinely the reserve who barely got a drive — two full race seasons is a
+  // short career, not a super-sub.
+  if (state.history.some((h) => h.reserveYear) && seasons.length <= 1) return 'THE SUPER-SUB';
   if (totals.f1Starts > 0) return 'THE JOURNEYMAN';
   return 'THE WHAT-IF';
 }

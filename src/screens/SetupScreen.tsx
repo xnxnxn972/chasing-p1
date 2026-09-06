@@ -78,7 +78,6 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
   const [number, setNumber] = useState(27);
   const [nationality, setNationality] = useState('GB');
   const [style, setStyle] = useState<DrivingStyle>('speed');
-  const [seed, setSeed] = useState(makeSeed());
 
   const trimmed = name.trim();
   const valid = trimmed.length > 0 && number >= 2 && number <= 99;
@@ -111,7 +110,9 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (valid) onStart({ name: trimmed, number, nationality, style, seed: seed.trim() || makeSeed() });
+          // The seed is generated here and never shown: the engine needs one for
+          // determinism, the player does not need to think about it.
+          if (valid) onStart({ name: trimmed, number, nationality, style, seed: makeSeed() });
         }}
       >
         <div className="field-row">
@@ -188,26 +189,6 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="field">
-          <label htmlFor="seed">Career seed</label>
-          <div className="field-row">
-            <input
-              id="seed"
-              className="input"
-              value={seed}
-              onChange={(e) => setSeed(e.target.value.toUpperCase())}
-              maxLength={16}
-            />
-            <button type="button" className="btn" onClick={() => setSeed(makeSeed())}>
-              Reroll
-            </button>
-          </div>
-          <p className="hint">
-            The whole universe comes from this &mdash; your hidden potential, how the teams develop, who your
-            rivals are. Share a seed to race the same world as someone else.
-          </p>
         </div>
 
         <button type="submit" className="btn btn-primary btn-block" disabled={!valid}>

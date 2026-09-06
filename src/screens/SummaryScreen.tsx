@@ -49,7 +49,7 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
         </h2>
         <div className="summary-sub">
           {firstYear}–{lastYear} · Retired at {state.player.retiredAge ?? state.player.age} · Peak OVR{' '}
-          {peakOverall} · Seed {state.seed}
+          {peakOverall}
         </div>
       </header>
 

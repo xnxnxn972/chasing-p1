@@ -79,29 +79,34 @@ export function createStartingStats(style: DrivingStyle, rng: Rng): DriverStats 
 function growthFactor(age: number): number {
   if (age <= 19) return 0.3;
   if (age <= 23) return 0.24;
-  if (age <= 28) return 0.15;
-  if (age <= 32) return 0.07;
+  if (age <= 27) return 0.15;
+  if (age <= 30) return 0.06;
   return 0;
 }
 
-/** Per-attribute annual drift once the driver is past his peak. */
+/**
+ * Per-attribute annual drift once the driver is past his peak, which arrives at
+ * 30. Raw pace goes first and goes fastest; racecraft barely moves and the
+ * thinking attributes keep improving for years, which is what lets a
+ * thirty-six-year-old still be worth a seat.
+ */
 function declineRate(key: keyof DriverStats, age: number): number {
-  const past = age - 32;
+  const past = age - 30;
   if (past <= 0) return 0;
-  const ramp = Math.min(1 + (past - 1) * 0.25, 2.6);
+  const ramp = Math.min(1 + (past - 1) * 0.28, 2.8);
   switch (key) {
     case 'pace':
-      return -1.5 * ramp;
+      return -1.7 * ramp;
     case 'qualifying':
-      return -1.1 * ramp;
-    case 'fitness':
       return -1.3 * ramp;
+    case 'fitness':
+      return -1.4 * ramp;
     case 'racecraft':
-      return -0.15 * ramp;
+      return -0.2 * ramp;
     case 'consistency':
-      return age <= 38 ? 0.4 : -0.5 * ramp;
+      return age <= 36 ? 0.35 : -0.6 * ramp;
     case 'technical':
-      return age <= 40 ? 0.5 : -0.3 * ramp;
+      return age <= 38 ? 0.45 : -0.4 * ramp;
   }
 }
 
@@ -145,12 +150,12 @@ export function developStats(input: DevelopmentInput, rng: Rng): DriverStats {
 export const AGE_PHASES: { from: number; to: number; label: string }[] = [
   { from: 16, to: 19, label: 'Very rapid development' },
   { from: 20, to: 23, label: 'Rapid development' },
-  { from: 24, to: 28, label: 'Prime development' },
-  { from: 29, to: 32, label: 'Peak' },
-  { from: 33, to: 35, label: 'Plateau' },
-  { from: 36, to: 38, label: 'Mild decline' },
-  { from: 39, to: 41, label: 'Significant decline' },
-  { from: 42, to: 45, label: 'Extreme longevity' }
+  { from: 24, to: 27, label: 'Prime development' },
+  { from: 28, to: 30, label: 'Peak' },
+  { from: 31, to: 33, label: 'Losing raw pace' },
+  { from: 34, to: 36, label: 'Declining' },
+  { from: 37, to: 39, label: 'Steep decline' },
+  { from: 40, to: 45, label: 'Extreme longevity' }
 ];
 
 export function agePhaseLabel(age: number): string {

@@ -1,5 +1,5 @@
 # dist/ is committed on purpose — GitHub Pages serves it at
-# /f1-career/dist/. Rebuild with `npm run build` before pushing.
+# /chasing-p1/dist/. Rebuild with `npm run build` before pushing.
 node_modules/
 .tmp/
 *.local
