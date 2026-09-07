@@ -120,9 +120,13 @@ function cohort(label: string, pick: Picker, N = 150, optimise = false) {
   console.log(' ', Object.entries(titleCounts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · '));
 }
 
-cohort('OPTIMISER (fastest car + best option every time)', optimiser, 120, true);
-cohort('greedy (always takes the fastest car offered)', greedy);
-cohort('arbitrary choices', arbitrary);
+// Title counts are bimodal — a handful of dynasties dominate the tail — so a
+// sample of 150 moves several points on `>=4 titles` from noise alone. Set N to
+// a few thousand before believing a change in the tail: `N=4000 npm run balance`.
+const N = Number(process.env.N) || 150;
+cohort('OPTIMISER (fastest car + best option every time)', optimiser, Math.round(N * 0.8), true);
+cohort('greedy (always takes the fastest car offered)', greedy, N);
+cohort('arbitrary choices', arbitrary, N);
 
 const a = autoplay('FIXEDSEED', 'technical', greedy, 3);
 const b = autoplay('FIXEDSEED', 'technical', greedy, 3);

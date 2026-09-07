@@ -227,16 +227,23 @@ function advanceCursor(cursor: GameState['cursor']): GameState['cursor'] {
 }
 
 /**
- * A season asks for one decision, and only sometimes two. Three separate coin
+ * A season asks for one decision, and only rarely two. Three separate coin
  * flips used to average north of two a year, which made a career a long series
  * of small prompts rather than a short series of real ones.
+ *
+ * The dial is deliberately set BELOW one a season: measured at ~0.75, which
+ * means roughly one season in four passes with no decision at all. A quiet
+ * season is not dead time — it makes the seasons that do ask something feel
+ * like they were worth waiting for, and it keeps a 25-year career short enough
+ * to finish in a sitting. Re-measure with `npm run balance`, which prints
+ * decisions/season for all three cohorts.
  */
 function canDecide(state: GameState): boolean {
   return state.decisionsUsed < state.decisionBudget;
 }
 
 function openSeason(state: GameState, rng: Rng): void {
-  state.decisionBudget = rng.chance(0.3) ? 2 : 1;
+  state.decisionBudget = rng.chance(0.15) ? 2 : 1;
   state.decisionsUsed = 0;
 }
 
@@ -252,14 +259,14 @@ function step(state: GameState): GameState {
         break;
       }
       case 'preseason': {
-        if (canDecide(state) && rng.chance(0.45)) {
+        if (canDecide(state) && rng.chance(0.36)) {
           state.pending = nextDecision(state, rng, 'preseason');
         }
         if (!state.pending) state.cursor = 'midseason';
         break;
       }
       case 'midseason': {
-        if (canDecide(state) && rng.chance(0.6)) {
+        if (canDecide(state) && rng.chance(0.47)) {
           state.pending = nextDecision(state, rng, 'midseason');
         }
         if (!state.pending) state.cursor = 'race';
@@ -271,7 +278,7 @@ function step(state: GameState): GameState {
         break;
       }
       case 'offseason': {
-        if (canDecide(state) && rng.chance(0.5)) {
+        if (canDecide(state) && rng.chance(0.4)) {
           state.pending = nextDecision(state, rng, 'offseason');
         }
         if (!state.pending) state.cursor = 'advance';
