@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { DrivingStyle } from '../game/types';
 import type { CareerSetup } from '../game/careerEngine';
 import { NATIONALITIES } from '../data/nationalities';
@@ -78,8 +78,11 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
   const [number, setNumber] = useState(27);
   const [nationality, setNationality] = useState('GB');
   const [style, setStyle] = useState<DrivingStyle>('speed');
-  // A double-tap on Start used to fire onStart twice, burning a second career.
-  const [starting, setStarting] = useState(false);
+  // A double-tap on Start fired onStart twice, burning a second career row.
+  // This has to be a ref: two clicks landing in one React batch both see the
+  // old value of a state variable, so a useState guard does not hold.
+  const starting = useRef(false);
+  const [started, setStarted] = useState(false);
 
   const trimmed = name.trim();
   const valid = trimmed.length > 0 && number >= 2 && number <= 99;
@@ -112,8 +115,9 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (!valid || starting) return;
-          setStarting(true);
+          if (!valid || starting.current) return;
+          starting.current = true;
+          setStarted(true);
           // The seed is generated here and never shown: the engine needs one for
           // determinism, the player does not need to think about it.
           onStart({ name: trimmed, number, nationality, style, seed: makeSeed() });
@@ -195,7 +199,7 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
           </div>
         </div>
 
-        <button type="submit" className="btn btn-primary btn-block" disabled={!valid || starting}>
+        <button type="submit" className="btn btn-primary btn-block" disabled={!valid || started}>
           Start your career
         </button>
       </form>

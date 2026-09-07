@@ -376,6 +376,10 @@ export function trackCareerStart(setup: {
   seed: string;
 }): void {
   markEngaged();
+  // Every career has a unique seed, so being told about one we already hold
+  // means a duplicate call — a double-tap, a re-render — not a new career.
+  // Without this the duplicate opens a second row that never gets played.
+  if (row.seed !== null && row.seed === setup.seed) return;
   // Second and later careers of a visit start their own row.
   if (row.career_index > 0) startNewRow();
   row.career_index += 1;
