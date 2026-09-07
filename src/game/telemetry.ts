@@ -213,6 +213,28 @@ const row: SessionRow = {
 let suppressed = false;
 let sending: Promise<void> | null = null;
 
+/**
+ * Nothing is written until the visitor actually does something.
+ *
+ * navigator.webdriver catches WebDriver tools and self-identifying bots, but
+ * the crawlers that filled this log presented as ordinary Chrome and would slip
+ * straight through. What separates them is behaviour: nineteen rows in
+ * twenty-one never touched anything. So a row is created on the first click,
+ * keypress or career start — never on page load alone.
+ *
+ * The cost is that a real person who opens the page and leaves without
+ * touching it also goes unrecorded. That is an acceptable trade: such a visit
+ * is indistinguishable from a crawler anyway, so counting it was never telling
+ * us anything.
+ */
+let engaged = false;
+
+function markEngaged(): void {
+  if (engaged || suppressed) return;
+  engaged = true;
+  schedule();
+}
+
 function headers(extra: Record<string, string> = {}): HeadersInit {
   return {
     'Content-Type': 'application/json',
@@ -238,7 +260,7 @@ async function lookupGeo(): Promise<void> {
 }
 
 async function push(keepalive = false): Promise<void> {
-  if (suppressed) return;
+  if (suppressed || !engaged) return;
   row.duration_s = Math.round((Date.now() - rowStarted) / 1000);
   row.meta.active_s = activeSeconds();
 
@@ -283,7 +305,8 @@ export function initTelemetry(): void {
     return;
   }
 
-  void lookupGeo().then(() => schedule());
+  // Fetch the geo up front so it is ready, but do not write anything yet.
+  void lookupGeo();
 
   // `visibilitychange` is the only event that fires reliably when a mobile
   // browser is backgrounded or the tab is closed; `pagehide` covers the rest.
@@ -303,6 +326,11 @@ export function initTelemetry(): void {
   // when the final flush never lands.
   let lastPing = 0;
   const onActivity = () => {
+    if (!engaged) {
+      markEngaged();
+      lastPing = Date.now();
+      return;
+    }
     const now = Date.now();
     if (now - lastPing < 30000) return;
     lastPing = now;
@@ -347,6 +375,7 @@ export function trackCareerStart(setup: {
   style: string;
   seed: string;
 }): void {
+  markEngaged();
   // Second and later careers of a visit start their own row.
   if (row.career_index > 0) startNewRow();
   row.career_index += 1;
