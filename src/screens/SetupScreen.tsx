@@ -78,6 +78,8 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
   const [number, setNumber] = useState(27);
   const [nationality, setNationality] = useState('GB');
   const [style, setStyle] = useState<DrivingStyle>('speed');
+  // A double-tap on Start used to fire onStart twice, burning a second career.
+  const [starting, setStarting] = useState(false);
 
   const trimmed = name.trim();
   const valid = trimmed.length > 0 && number >= 2 && number <= 99;
@@ -110,9 +112,11 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          if (!valid || starting) return;
+          setStarting(true);
           // The seed is generated here and never shown: the engine needs one for
           // determinism, the player does not need to think about it.
-          if (valid) onStart({ name: trimmed, number, nationality, style, seed: makeSeed() });
+          onStart({ name: trimmed, number, nationality, style, seed: makeSeed() });
         }}
       >
         <div className="field-row">
@@ -191,7 +195,7 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
           </div>
         </div>
 
-        <button type="submit" className="btn btn-primary btn-block" disabled={!valid}>
+        <button type="submit" className="btn btn-primary btn-block" disabled={!valid || starting}>
           Start your career
         </button>
       </form>

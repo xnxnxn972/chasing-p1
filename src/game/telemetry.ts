@@ -20,8 +20,10 @@ const SUPABASE_URL = 'https://hmvxanqkorcfxwsdusuj.supabase.co';
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtdnhhbnFrb3JjZnh3c2R1c3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjI4OTgsImV4cCI6MjA5NTI5ODg5OH0.7o7OnhikQdgApqPTEIbhjOZ-YcKDU1fBFpcLXPXtEtA';
 
-const TABLE = 'cp_sessions';
-const REST = `${SUPABASE_URL}/rest/v1/${TABLE}`;
+// Writes go through a security-definer function, not the table. The table has
+// no SELECT policy (visitors must not read the log), and an UPDATE cannot find
+// a row it cannot see — so PATCHing it silently matched nothing.
+const RPC = `${SUPABASE_URL}/rest/v1/rpc/cp_log_session`;
 
 export interface SessionRow {
   /** Unique per CAREER — one row per career played. */
@@ -107,6 +109,30 @@ function detectDevice(): { device: string; platform: string } {
   return { device, platform };
 }
 
+/**
+ * Is this a browser being driven by software rather than a person?
+ *
+ * Nine rows in ten were link scanners and crawlers hitting the Pages URL — one
+ * second of activity, no career started, arriving from a dozen datacentres.
+ * Logging them buries the real numbers.
+ *
+ * `?tel=force` overrides this, which is the only way to verify the write path
+ * from an automated browser.
+ */
+function looksAutomated(): boolean {
+  if (typeof navigator === 'undefined') return true;
+  try {
+    if (new URLSearchParams(location.search).get('tel') === 'force') return false;
+  } catch {
+    // No URL to read; fall through to the checks below.
+  }
+  if ((navigator as Navigator & { webdriver?: boolean }).webdriver === true) return true;
+  const ua = navigator.userAgent || '';
+  return /bot|crawl|spider|slurp|headless|phantom|puppeteer|playwright|selenium|lighthouse|scanner|curl\/|wget|python-requests|facebookexternalhit|bingpreview|preview/i.test(
+    ua
+  );
+}
+
 function newId(): string {
   try {
     return crypto.randomUUID();
@@ -184,7 +210,7 @@ const row: SessionRow = {
   ...detectDevice()
 };
 
-let inserted = false;
+let suppressed = false;
 let sending: Promise<void> | null = null;
 
 function headers(extra: Record<string, string> = {}): HeadersInit {
@@ -211,77 +237,22 @@ async function lookupGeo(): Promise<void> {
   }
 }
 
-/**
- * Columns the table might not have yet. PostgREST rejects an insert naming an
- * unknown column outright, so a schema migration that has not been run would
- * otherwise stop all logging silently. On that specific failure we drop the
- * newest fields and send the rest, and remember to keep doing so.
- */
-const OPTIONAL_FIELDS: (keyof SessionRow)[] = [
-  'device',
-  'platform',
-  'app_version',
-  'meta',
-  'visit_id',
-  'career_index'
-];
-let dropOptional = false;
-
-function strip(snapshot: Partial<SessionRow>, drop: boolean): string {
-  if (!drop) return JSON.stringify(snapshot);
-  const copy: Partial<SessionRow> = { ...snapshot };
-  for (const key of OPTIONAL_FIELDS) delete copy[key];
-  return JSON.stringify(copy);
-}
-
-/** True when the failure is "that column does not exist". */
-function isUnknownColumn(status: number, body: string): boolean {
-  return status === 400 && /PGRST204|column .* does not exist|Could not find the/i.test(body);
-}
-
 async function push(keepalive = false): Promise<void> {
+  if (suppressed) return;
   row.duration_s = Math.round((Date.now() - rowStarted) / 1000);
   row.meta.active_s = activeSeconds();
 
-  // Snapshot everything the write depends on, synchronously. `push` is async
-  // and a new career can begin while it is in flight — without this, the old
-  // row's success would mark the NEW row as already inserted and that row
-  // would never get a POST of its own.
+  // Snapshot synchronously: `push` is async and a new career can begin while
+  // it is in flight, which would otherwise send the wrong row's data.
   const snapshot: Partial<SessionRow> = { ...row, meta: { ...row.meta } };
-  const sessionId = row.session_id;
-  const isInsert = !inserted;
 
   try {
-    if (isInsert) {
-      let res = await fetch(REST, {
-        method: 'POST',
-        headers: headers({ Prefer: 'return=minimal' }),
-        body: strip(snapshot, dropOptional),
-        keepalive
-      });
-      if (!res.ok && !dropOptional && isUnknownColumn(res.status, await res.clone().text())) {
-        dropOptional = true;
-        res = await fetch(REST, {
-          method: 'POST',
-          headers: headers({ Prefer: 'return=minimal' }),
-          body: strip(snapshot, true),
-          keepalive
-        });
-      }
-      // Only claim insertion for the row this call actually pushed.
-      if (res.ok && row.session_id === sessionId) inserted = true;
-      return;
-    }
-
-    const res = await fetch(`${REST}?session_id=eq.${encodeURIComponent(sessionId)}`, {
-      method: 'PATCH',
-      headers: headers({ Prefer: 'return=minimal' }),
-      body: strip(snapshot, dropOptional),
+    await fetch(RPC, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ p: snapshot }),
       keepalive
     });
-    if (!res.ok && !dropOptional && isUnknownColumn(res.status, await res.clone().text())) {
-      dropOptional = true;
-    }
   } catch {
     // Telemetry is never allowed to surface to the player.
   }
@@ -304,6 +275,13 @@ let installed = false;
 export function initTelemetry(): void {
   if (installed || typeof window === 'undefined') return;
   installed = true;
+
+  // Decided once, at start: a driven browser is never logged at all, so it
+  // costs no requests either.
+  if (looksAutomated()) {
+    suppressed = true;
+    return;
+  }
 
   void lookupGeo().then(() => schedule());
 
@@ -360,7 +338,6 @@ function startNewRow(): void {
   activeMs = 0;
   visibleSince = Date.now();
   rowStarted = Date.now();
-  inserted = false;                // the new row needs its own insert
 }
 
 export function trackCareerStart(setup: {
