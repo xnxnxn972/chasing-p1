@@ -141,6 +141,38 @@ function newId(): string {
   }
 }
 
+/**
+ * Where the visit came from, captured once at load.
+ *
+ * document.referrer answers this only partly, and its gaps are not random:
+ *
+ *  * A native share — the one this game's own Share button produces — arrives
+ *    through WhatsApp or iMessage with NO referrer at all. The channel we can
+ *    most influence is the one referrer is blindest to.
+ *  * Browsers default to a strict referrer policy, so a cross-origin referrer
+ *    arrives as a bare origin. "They came from Google" is knowable; what they
+ *    searched for is not, by anyone, ever.
+ *  * In-app browsers (Instagram, Facebook) frequently strip it outright.
+ *
+ * So we also read the tags off our own URL. They survive being pasted into a
+ * chat, which is exactly where referrer dies. Standard utm_* names, plus a
+ * short `s` for links meant to be seen by a human.
+ */
+const LANDING_TAGS: Record<string, string> = (() => {
+  const tags: Record<string, string> = {};
+  if (typeof location === 'undefined') return tags;
+  try {
+    const q = new URLSearchParams(location.search);
+    for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 's', 'src', 'ref']) {
+      const value = q.get(key);
+      if (value) tags[key === 's' ? 'src' : key] = value.slice(0, 60);
+    }
+  } catch {
+    /* a malformed query string is not worth failing a page load over */
+  }
+  return tags;
+})();
+
 const started = Date.now();
 let rowStarted = started;
 
@@ -206,7 +238,7 @@ const row: SessionRow = {
   screen: typeof window !== 'undefined' ? `${window.screen?.width ?? 0}x${window.screen?.height ?? 0}` : null,
   referrer: typeof document !== 'undefined' ? document.referrer.slice(0, 300) || null : null,
   app_version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : null,
-  meta: {},
+  meta: { ...LANDING_TAGS },
   ...detectDevice()
 };
 
@@ -362,7 +394,7 @@ function startNewRow(): void {
   row.career_score = 0;
   row.shared = false;
   row.share_result = null;
-  row.meta = {};
+  row.meta = { ...LANDING_TAGS };
   activeMs = 0;
   visibleSince = Date.now();
   rowStarted = Date.now();

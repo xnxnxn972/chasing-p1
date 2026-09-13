@@ -315,12 +315,18 @@ export async function renderShareCard(data: ShareData): Promise<Blob> {
 
 /**
  * Where this copy of the game lives, for the share text. Derived rather than
- * hardcoded so it stays right if the game ever moves; query and hash are
- * dropped so a cache-busted visit does not share a cache-busted link.
+ * hardcoded so it stays right if the game ever moves; the incoming query and
+ * hash are dropped so a cache-busted visit does not share a cache-busted link.
+ *
+ * The `?s=share` tag is the only way share traffic can be counted. A link
+ * pasted into WhatsApp or iMessage opens with no referrer whatsoever, so
+ * without it every person who arrives through someone's shared career is
+ * indistinguishable from someone who typed the address in.
  */
 export function gameUrl(): string {
   if (typeof location === 'undefined') return '';
-  return `${location.origin}${location.pathname}`.replace(/index\.html$/, '');
+  const base = `${location.origin}${location.pathname}`.replace(/index\.html$/, '');
+  return `${base}?s=share`;
 }
 
 export type ShareResult = 'shared' | 'downloaded' | 'cancelled' | 'failed';
