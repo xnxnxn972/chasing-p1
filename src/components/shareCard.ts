@@ -366,7 +366,7 @@ export async function shareCareerCard(data: ShareData): Promise<ShareResult> {
         title: `${data.title} — ${data.name}`,
         text: `${headline}
 
-Play Chasing P1: ${gameUrl()}`
+Play Chasing P1: ${gameUrl(data.score)}`
       });
       return 'shared';
     } catch (err) {

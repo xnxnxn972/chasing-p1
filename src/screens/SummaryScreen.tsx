@@ -62,7 +62,7 @@ export function SummaryScreen({
     `Peak OVR ${peakOverall} · Career score ${score.toLocaleString()} (${percentile})`,
     'Think you can beat that?',
     `CHASING P1 — ${TAGLINE.toUpperCase()}`,
-    gameUrl()
+    gameUrl(score)
   ].join('\n');
 
   return (
