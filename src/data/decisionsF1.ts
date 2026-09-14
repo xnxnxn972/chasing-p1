@@ -1759,5 +1759,451 @@ export const F1_EVENTS: DecisionEvent[] = [
         ]
       };
     }
+  },
+  // =========================================================================
+  //  FORMULA 1 PRESEASON, WIDENED
+  //
+  //  Measured as the most repetitive stage in the game: nine cards against
+  //  almost three draws a career, more than twice the load of F1 midseason.
+  //  The cause is structural — every season has a preseason, and preseason
+  //  cards are the least conditional, because winter happens to everybody
+  //  while a title fight does not. Seven more takes it to sixteen.
+  // =========================================================================
+  {
+    id: 'f1_fake_leak',
+    phase: 'preseason',
+    tag: 'Politics',
+    weight: 9,
+    when: (ctx) => isF1(ctx) && f1Seasons(ctx.state) >= 2,
+    build: (ctx) => {
+      const team = currentTeam(ctx);
+      return {
+        title: 'A story you know is untrue',
+        body: `A journalist with a good record has reported that you are in advanced talks with another team. You are not. You have not spoken to anybody. ${team.name} have read it, and the only person who can correct it is you.`,
+        options: [
+          {
+            id: 'deny',
+            label: 'Deny it publicly',
+            detail: 'Kill it on Thursday. Your value goes back to what it was on Wednesday.',
+            effect: `${team.shortName} bond +16 · Reputation +5 · Marketability −8`,
+            apply: ({ state }) => {
+              bond(state, 16);
+              rel(state, state.player.teamId, 12);
+              rep(state, 5);
+              market(state, -8);
+              return 'You say plainly that it is not true and that you are staying. The principal thanks you in front of people, and three teams who had started thinking about you stop.';
+            }
+          },
+          {
+            id: 'silence',
+            label: 'Say nothing',
+            detail: 'Let it sit there. Untrue things can still be useful.',
+            outcomes: [
+              {
+                id: 'leverage',
+                chance: 60,
+                effect: 'Marketability +17 · Reputation +3 · Team bond −12',
+                detail: 'your price goes up',
+                tone: 'good',
+                apply: ({ state }) => {
+                  market(state, 17);
+                  rep(state, 3);
+                  bond(state, -12);
+                  return 'You answer every question with a smile and the word "contracts". By March two teams have made enquiries that would not have existed a month ago.';
+                }
+              },
+              {
+                id: 'they_move_first',
+                chance: 40,
+                effect: 'Team bond −24 · Reputation −4 · Form −2',
+                detail: 'they stop waiting to find out',
+                tone: 'bad',
+                apply: ({ state }) => {
+                  bond(state, -24);
+                  rel(state, state.player.teamId, -20);
+                  rep(state, -4);
+                  form(state, -2);
+                  return 'They decide not to be the last to know and open talks with somebody else in February. The story was never true and it cost you the seat anyway.';
+                }
+              }
+            ]
+          }
+        ]
+      };
+    }
+  },
+  {
+    id: 'f1_rookie_data',
+    phase: 'preseason',
+    tag: 'Team-mate',
+    weight: 8,
+    when: (ctx) =>
+      isF1(ctx) && f1Seasons(ctx.state) >= 2 && Boolean(ctx.teammate) && (ctx.teammate?.age ?? 99) <= 24,
+    build: (ctx) => {
+      const mate = ctx.teammate!;
+      return {
+        title: `${mate.name} has asked for your data`,
+        body: `Not help in the debrief — the actual files. Your reference laps, your setup notes, the three years of your own work that explain why you are quick where you are quick. He is ${mate.age}, he is in the same car as you, and the team would very much like you to say yes.`,
+        options: [
+          {
+            id: 'give',
+            label: 'Give him everything',
+            detail: 'Two quick cars beat one. He is also the person most likely to end you.',
+            outcomes: [
+              {
+                id: 'lifts_team',
+                chance: 55,
+                effect: 'Team bond +20 · Reputation +8 · Technical +1',
+                detail: 'the whole team goes forward',
+                tone: 'good',
+                apply: ({ state }) => {
+                  bond(state, 20);
+                  rep(state, 8);
+                  stats(state, { technical: 1 });
+                  return 'He is within two tenths by the third race and the team suddenly has two cars worth developing for. Everybody in that building knows where it came from.';
+                }
+              },
+              {
+                id: 'monster',
+                chance: 45,
+                effect: 'Team bond +14 · Reputation +6 · Form −3',
+                detail: 'he uses it better than you do',
+                tone: 'bad',
+                apply: ({ state, teammate }) => {
+                  bond(state, 14);
+                  rep(state, 6);
+                  form(state, -3);
+                  if (teammate) teammate.form = Math.min(10, teammate.form + 4);
+                  return 'He takes your three years of work, adds the thing he does naturally that you cannot, and out-qualifies you eleven times. You handed him the only advantage you had.';
+                }
+              }
+            ]
+          },
+          {
+            id: 'refuse',
+            label: 'Keep it',
+            detail: 'It is yours. Everyone will understand and nobody will forget.',
+            effect: 'Pace +1 · Qualifying +1 · Team bond −15 · Reputation −6',
+            apply: ({ state }) => {
+              stats(state, { pace: 1, qualifying: 1 });
+              bond(state, -15);
+              rep(state, -6);
+              return 'You tell him to build his own. It is entirely reasonable and it is quoted back at you for the next four years, usually by people who were not in the room.';
+            }
+          }
+        ]
+      };
+    }
+  },
+  {
+    id: 'f1_blank_sheet',
+    phase: 'preseason',
+    tag: 'The car',
+    weight: 14,
+    // Only in a regulation-reset year, when there genuinely is a blank sheet.
+    when: (ctx) => isF1(ctx) && ctx.state.regulationYears.includes(ctx.state.year),
+    build: (ctx) => {
+      const team = currentTeam(ctx);
+      return {
+        title: 'The engineers cannot agree',
+        body: `New rules, and ${team.name} have two concepts on the table and no consensus. One group has something nobody else will have. The other has a careful evolution of what already works. The technical director has, unusually, asked what you think — which means the room is deadlocked and somebody wants cover.`,
+        options: [
+          {
+            id: 'radical',
+            label: 'Back the radical concept',
+            detail: 'Nobody else will have it. That cuts both ways.',
+            outcomes: [
+              {
+                id: 'works',
+                chance: 40,
+                effect: 'A real step · Team bond +14 · Reputation +9',
+                detail: 'it is a second a lap',
+                tone: 'good',
+                apply: ({ state }) => {
+                  carPace(state, state.player.teamId, 5);
+                  bond(state, 14);
+                  rep(state, 9);
+                  form(state, 2);
+                  return 'It works. By the second race everyone in the pit lane is photographing your sidepods and the people who voted for it will dine out on the story for a decade.';
+                }
+              },
+              {
+                id: 'fails',
+                chance: 60,
+                effect: 'A year lost · Team bond −12 · Form −3',
+                detail: 'it does not correlate',
+                tone: 'bad',
+                apply: ({ state }) => {
+                  carPace(state, state.player.teamId, -4);
+                  bond(state, -12);
+                  form(state, -3);
+                  return 'It does not correlate with anything, and by May the team is rebuilding last year’s concept in a hurry. You were in the room when it was chosen and everybody remembers that.';
+                }
+              }
+            ]
+          },
+          {
+            id: 'evolution',
+            label: 'Back the evolution',
+            detail: 'A car that works in March. A ceiling you can already see.',
+            effect: 'A modest, reliable step · Team bond +10 · Consistency +1',
+            apply: ({ state }) => {
+              carPace(state, state.player.teamId, 1.5);
+              bond(state, 10);
+              stats(state, { consistency: 1, technical: 1 });
+              return 'The car turns up in March doing roughly what it did last year, slightly better. It is never embarrassing and it is never quite enough.';
+            }
+          }
+        ]
+      };
+    }
+  },
+  {
+    id: 'f1_simulator_ghost',
+    phase: 'preseason',
+    tag: 'The car',
+    weight: 9,
+    when: (ctx) => isF1(ctx) && f1Seasons(ctx.state) >= 1,
+    build: () => ({
+      title: 'Nobody else can feel it',
+      body: 'There is something in the rear of the car on entry — not a number, not a trace, a thing you can feel through the seat about four times a lap. Two engineers have looked. The data says the car is fine. They have started using the word "subjective".',
+      options: [
+        {
+          id: 'push',
+          label: 'Keep pushing',
+          detail: 'Make them chase it. Be the driver who complains all winter.',
+          outcomes: [
+            {
+              id: 'found',
+              chance: 45,
+              effect: 'A real fix · Technical +2.5 · Reputation +10',
+              detail: 'they find it in February',
+              tone: 'good',
+              apply: ({ state }) => {
+                carPace(state, state.player.teamId, 3);
+                stats(state, { technical: 2.5 });
+                rep(state, 10);
+                bond(state, 8);
+                return 'On the last day of testing somebody finds a bracket flexing under load. It was exactly where you said it was, and from that moment they believe everything you tell them.';
+              }
+            },
+            {
+              id: 'nothing',
+              chance: 55,
+              effect: 'Team bond −16 · Reputation −6 · Form −1',
+              detail: 'there is nothing there',
+              tone: 'bad',
+              apply: ({ state }) => {
+                bond(state, -16);
+                rep(state, -6);
+                form(state, -1);
+                return 'Six weeks and a great deal of goodwill later there is nothing to find. The word that gets used about you in meetings you are not in is "difficult".';
+              }
+            }
+          ]
+        },
+        {
+          id: 'drop',
+          label: 'Let it go',
+          detail: 'Trust the data. Find out in March whether you should have.',
+          outcomes: [
+            {
+              id: 'imagined',
+              chance: 55,
+              effect: 'Team bond +12 · Consistency +1',
+              detail: 'it really was nothing',
+              tone: 'good',
+              apply: ({ state }) => {
+                bond(state, 12);
+                stats(state, { consistency: 1 });
+                return 'You stop mentioning it and it stops being there, which is what everybody expected. Winter is calm and the car is fine.';
+              }
+            },
+            {
+              id: 'race_one',
+              chance: 45,
+              effect: 'A season starting backwards · Form −4 · Reputation −3',
+              detail: 'it appears in race one',
+              tone: 'bad',
+              apply: ({ state }) => {
+                carPace(state, state.player.teamId, -2.5);
+                form(state, -4);
+                rep(state, -3);
+                return 'It arrives on lap nine of the first race, in public, exactly as you described it in January. Nobody apologises and it takes until June to cure.';
+              }
+            }
+          ]
+        }
+      ]
+    })
+  },
+  {
+    id: 'f1_seat_fitting',
+    phase: 'preseason',
+    tag: 'The body',
+    weight: 8,
+    when: (ctx) => isF1(ctx),
+    build: () => ({
+      title: 'The cockpit is too narrow',
+      body: 'The survival cell was drawn around an aerodynamic surface and then somebody was asked to fit a human inside it. Twenty minutes in the seat and your shoulders are numb. Widening it costs a measurable amount of downforce, and the aerodynamicists have quantified exactly how much, twice, unprompted.',
+      options: [
+        {
+          id: 'suffer',
+          label: 'Leave it alone',
+          detail: 'Two hundredths a lap. All year.',
+          effect: 'Pace +1.5 · Qualifying +1 · Fitness −3 · Consistency −1.5',
+          apply: ({ state }) => {
+            stats(state, { pace: 1.5, qualifying: 1, fitness: -3, consistency: -1.5 });
+            bond(state, 8);
+            return 'You take the lap time. By lap forty of a hot race you cannot feel your left hand, and you keep that to yourself for eleven months.';
+          }
+        },
+        {
+          id: 'widen',
+          label: 'Have it widened',
+          detail: 'Be able to drive the whole race. Cost them the downforce.',
+          effect: 'Fitness +2.5 · Consistency +2 · A small aerodynamic cost · Team bond −10',
+          apply: ({ state }) => {
+            stats(state, { fitness: 2.5, consistency: 2 });
+            carPace(state, state.player.teamId, -1.2);
+            bond(state, -10);
+            return 'They cut it and re-laminate it and tell you what it cost, in numbers, more than once. You can breathe, and you are as strong on lap fifty as on lap five.';
+          }
+        }
+      ]
+    })
+  },
+  {
+    id: 'f1_kart_race',
+    phase: 'preseason',
+    tag: 'Fame',
+    weight: 7,
+    when: (ctx) => isF1(ctx) && ctx.state.player.career.marketability >= 30,
+    build: (ctx) => {
+      const fee = ctx.rng.range(0.4, 1.2);
+      return {
+        title: 'The sponsor has hired a kart track',
+        body: `Two footballers, a rapper, somebody from a television programme, and a fourteen-year-old national karting champion whose father has been telling everyone all week. There are cameras. There is ${formatMoney(fee)} in it. Nobody has thought about what happens if you lose.`,
+        options: [
+          {
+            id: 'race',
+            label: 'Race them',
+            detail: 'It is a kart track and you drive Formula 1 cars. What could happen.',
+            outcomes: [
+              {
+                id: 'win',
+                chance: 45,
+                effect: `${formatMoney(fee)} · Marketability +14 · Reputation +4`,
+                detail: 'you win, as you should',
+                tone: 'good',
+                apply: ({ state }) => {
+                  money(state, fee);
+                  market(state, 14);
+                  rep(state, 4);
+                  return 'You win it by nine seconds and spend the afternoon being photographed with people whose followers have never watched a Grand Prix. The clip does very well.';
+                }
+              },
+              {
+                id: 'the_kid',
+                chance: 40,
+                effect: `${formatMoney(fee)} · Marketability +9 · Reputation −8`,
+                detail: 'the fourteen-year-old beats you',
+                tone: 'bad',
+                apply: ({ state }) => {
+                  money(state, fee);
+                  market(state, 9);
+                  rep(state, -8);
+                  form(state, -1);
+                  return 'The fourteen-year-old beats you by four tenths and is extremely gracious about it, which is worse. The clip does very, very well.';
+                }
+              },
+              {
+                id: 'hurt',
+                chance: 15,
+                effect: 'Fitness −4 · Form −3 · Team bond −16',
+                detail: 'somebody brakes far too late',
+                tone: 'bad',
+                apply: ({ state }) => {
+                  stats(state, { fitness: -4 });
+                  form(state, -3);
+                  bond(state, -16);
+                  return 'A footballer arrives at turn one with no intention of stopping and you go into the barrier sideways with your wrist trapped. You miss the second test and your team principal says nothing at all, at length.';
+                }
+              }
+            ]
+          },
+          {
+            id: 'decline',
+            label: 'Send your apologies',
+            effect: 'Fitness +1.5 · Consistency +1 · Marketability −7',
+            apply: ({ state }) => {
+              stats(state, { fitness: 1.5, consistency: 1 });
+              market(state, -7);
+              return 'You train instead. The sponsor is told you had a scheduling conflict and understands perfectly, in the way that people do when they do not.';
+            }
+          }
+        ]
+      };
+    }
+  },
+  {
+    id: 'f1_pound_bet',
+    phase: 'preseason',
+    tag: 'Team-mate',
+    weight: 8,
+    when: (ctx) => isF1(ctx) && Boolean(ctx.teammate),
+    build: (ctx) => ({
+      title: 'One pound, and your dignity',
+      body: `${ctx.teammate!.name} proposes it over breakfast at the first test: whoever finishes lower in the championship spends a day next year as the other one's personal assistant. In full. With photographs. He is entirely serious and there is a pound coin on the table.`,
+      options: [
+        {
+          id: 'take',
+          label: 'Take the bet',
+          detail: 'Every session for the next nine months now means something extra.',
+          outcomes: [
+            {
+              id: 'won',
+              chance: 50,
+              effect: 'Reputation +6 · Marketability +9 · Form +2',
+              detail: 'he carries your bags in November',
+              tone: 'good',
+              apply: ({ state }) => {
+                rep(state, 6);
+                market(state, 9);
+                form(state, 2);
+                bond(state, 6);
+                return 'He spends a day in December carrying your helmet bag and fetching coffee, and posts all of it himself. It is the most human either of you has looked all year.';
+              }
+            },
+            {
+              id: 'lost',
+              chance: 50,
+              effect: 'Marketability +11 · Reputation −5 · Form −1',
+              detail: 'you carry his',
+              tone: 'bad',
+              apply: ({ state }) => {
+                market(state, 11);
+                rep(state, -5);
+                form(state, -1);
+                bond(state, 6);
+                return 'You lose by eleven points and spend a day in December holding an umbrella over a man you beat in qualifying fourteen times. The photographs are everywhere and they are, admittedly, very funny.';
+              }
+            }
+          ]
+        },
+        {
+          id: 'decline',
+          label: 'Decline',
+          detail: 'You are a professional. He will tell everyone anyway.',
+          effect: 'Consistency +1.5 · Reputation −4 · Team bond −6',
+          apply: ({ state }) => {
+            stats(state, { consistency: 1.5 });
+            rep(state, -4);
+            bond(state, -6);
+            return 'You say you would rather keep it on the track. He repeats the story in every interview he gives for the rest of the season, and it is funnier every time.';
+          }
+        }
+      ]
+    })
   }
 ];
