@@ -1014,5 +1014,750 @@ export const F1_EVENTS: DecisionEvent[] = [
         }
       ]
     })
+  },
+  // =========================================================================
+  //  FORMULA 1, EXPANDED
+  //
+  //  The F1 pool was twenty cards against a career that can run twenty-five
+  //  seasons, and preseason had only four of them. These are the parts of a
+  //  driver's life the original set left out: the camera crew, the body, the
+  //  phone, the people at home, and the quiet choices nobody outside the
+  //  factory ever hears about.
+  // =========================================================================
+
+  // ---- preseason ----------------------------------------------------------
+  {
+    id: 'f1_documentary',
+    phase: 'preseason',
+    tag: 'Fame',
+    weight: 8,
+    when: (ctx) => isF1(ctx) && f1Seasons(ctx.state) >= 1,
+    build: (ctx) => {
+      const fee = ctx.rng.range(2.5, 6.5);
+      const team = currentTeam(ctx);
+      return {
+        title: 'They want to film everything',
+        body: `A streaming service is offering ${formatMoney(fee)} for unrestricted access to your season — the debriefs, the bad Sundays, the conversations in the motorhome. ${team.name} hate the idea and have said so in writing. Every weekend that goes wrong becomes television.`,
+        options: [
+          {
+            id: 'let_them_in',
+            label: 'Let them in',
+            detail: 'The money and the audience. And a camera in the garage on your worst day.',
+            outcomes: [
+              {
+                id: 'loved',
+                chance: 60,
+                effect: `${formatMoney(fee)} · Marketability +18 · Team bond −12`,
+                detail: 'the series makes you',
+                tone: 'good',
+                apply: ({ state }) => {
+                  money(state, fee);
+                  market(state, 18);
+                  rep(state, 5);
+                  bond(state, -12);
+                  return 'You come out of it looking thoughtful and quick, and an enormous number of people who have never watched a race now know your name.';
+                }
+              },
+              {
+                id: 'exposed',
+                chance: 40,
+                effect: `${formatMoney(fee)} · Marketability +9 · Reputation −9 · Team bond −18`,
+                detail: 'they use the argument',
+                tone: 'bad',
+                apply: ({ state }) => {
+                  money(state, fee);
+                  market(state, 9);
+                  rep(state, -9);
+                  bond(state, -18);
+                  form(state, -1);
+                  return 'Episode four is eleven minutes of you losing your temper in a debrief. It is the most watched thing you have ever done and the garage has not forgotten it.';
+                }
+              }
+            ]
+          },
+          {
+            id: 'keep_out',
+            label: 'Keep the cameras out',
+            detail: 'The team will remember it. Nobody else will ever know.',
+            effect: 'Team bond +14 · Consistency +1 · Marketability −7',
+            apply: ({ state }) => {
+              bond(state, 14);
+              stats(state, { consistency: 1 });
+              market(state, -7);
+              return 'You say no. The principal tells you privately that he will not forget it, and for once that is a good thing.';
+            }
+          }
+        ]
+      };
+    }
+  },
+  {
+    id: 'f1_all_nighter',
+    phase: 'preseason',
+    tag: 'The factory',
+    // Appears in ~53% of careers, and lowering the weight barely moves it —
+    // which is the tell. `isF1` excludes reserve drivers, so almost every other
+    // F1 preseason card is ineligible during a reserve year and this one is
+    // frequently the ONLY candidate. Weight cannot fix that; more cards that
+    // admit a reserve driver can. Until then a reserve winter is this card.
+    weight: 5,
+    when: (ctx) => ctx.state.player.series === 'F1',
+    build: () => ({
+      title: 'Nobody outside the factory will ever know',
+      body: 'The race drivers went home at six. The simulator team need someone to sit in the thing until four in the morning validating setups for the opening three races. They have asked you because you are the one who says yes.',
+      options: [
+        {
+          id: 'stay',
+          label: 'Stay',
+          detail: 'Become the person the engineers ask for.',
+          effect: 'Technical +2.5 · Team bond +15 · Fitness −2 · Form −1',
+          apply: ({ state }) => {
+            stats(state, { technical: 2.5, fitness: -2 });
+            bond(state, 15);
+            form(state, -1);
+            return 'You do four nights of it and the car that arrives in March is meaningfully better than the one that would have. Nobody outside the building knows, and everybody inside it does.';
+          }
+        },
+        {
+          id: 'home',
+          label: 'Go home',
+          detail: 'Arrive in March rested, like a driver rather than an employee.',
+          effect: 'Fitness +2 · Form +2 · Team bond −8',
+          apply: ({ state }) => {
+            stats(state, { fitness: 2 });
+            form(state, 2);
+            bond(state, -8);
+            return 'You go home and sleep properly for six weeks. Somebody else sits in the simulator, and the engineers learn his name instead of yours.';
+          }
+        }
+      ]
+    })
+  },
+  {
+    id: 'f1_weight_programme',
+    phase: 'preseason',
+    tag: 'The body',
+    weight: 7,
+    when: (ctx) => isF1(ctx),
+    build: () => ({
+      title: 'Three kilos before the opener',
+      body: 'The team have run the numbers and three kilos is worth real lap time. Your trainer has read the programme they sent over and says, carefully, that he would not put a client of his on it.',
+      options: [
+        {
+          id: 'chase',
+          label: 'Chase the target',
+          detail: 'Lap time now. Your trainer has put his objection in writing.',
+          outcomes: [
+            {
+              id: 'works',
+              chance: 55,
+              effect: 'Pace +2 · Qualifying +1.5 · Team bond +8',
+              detail: 'you make it and you are quick',
+              tone: 'good',
+              apply: ({ state }) => {
+                stats(state, { pace: 2, qualifying: 1.5 });
+                bond(state, 8);
+                return 'You make the number by the second test and you are a tenth quicker everywhere. The team are delighted and say so loudly.';
+              }
+            },
+            {
+              id: 'breaks',
+              chance: 45,
+              effect: 'Fitness −4 · Consistency −2 · Form −3',
+              detail: 'you fall apart by round six',
+              tone: 'bad',
+              apply: ({ state }) => {
+                stats(state, { fitness: -4, consistency: -2 });
+                form(state, -3);
+                return 'You make the number and then, somewhere around round six, you stop being able to finish a race distance without your hands shaking.';
+              }
+            }
+          ]
+        },
+        {
+          id: 'refuse',
+          label: 'Refuse it',
+          detail: 'Keep your body. Irritate the people who write the programmes.',
+          effect: 'Fitness +2.5 · Consistency +1 · Team bond −9',
+          apply: ({ state }) => {
+            stats(state, { fitness: 2.5, consistency: 1 });
+            bond(state, -9);
+            return 'You tell them no and train the way your own people want. The performance department write you down as difficult and mention it in a meeting you are not in.';
+          }
+        }
+      ]
+    })
+  },
+  {
+    id: 'f1_idol_funeral',
+    phase: 'preseason',
+    tag: 'The sport',
+    weight: 6,
+    when: (ctx) => isF1(ctx) && f1Seasons(ctx.state) >= 2,
+    build: () => ({
+      title: 'The driver you grew up watching has died',
+      body: 'You had his poster on a wall until you were nineteen. The family have asked you to speak at the memorial, which is on the Friday of the first test, in another country.',
+      options: [
+        {
+          id: 'speak',
+          label: 'Go and speak',
+          detail: 'Lose the first day of testing. Say the thing that needs saying.',
+          effect: 'Reputation +9 · Marketability +8 · Form −2 · Technical −1',
+          apply: ({ state }) => {
+            rep(state, 9);
+            market(state, 8);
+            form(state, -2);
+            stats(state, { technical: -1 });
+            return 'You speak for four minutes without notes in front of six hundred people, and half the grid, and you get it right. You miss the day that would have told you what the car does over kerbs.';
+          }
+        },
+        {
+          id: 'test',
+          label: 'Stay at the test',
+          detail: 'Send flowers. Drive the car.',
+          effect: 'Technical +2 · Pace +1 · Reputation −5',
+          apply: ({ state }) => {
+            stats(state, { technical: 2, pace: 1 });
+            rep(state, -5);
+            return 'You do a hundred and thirty laps and learn things about the car that matter in March. The photographs from the memorial show an empty chair with your name on it.';
+          }
+        }
+      ]
+    })
+  },
+  {
+    id: 'f1_move_near_factory',
+    phase: 'preseason',
+    tag: 'Life',
+    weight: 7,
+    once: true,
+    when: (ctx) => isF1(ctx) && seasonsWithCurrentTeam(ctx.state) >= 1,
+    build: (ctx) => {
+      const team = currentTeam(ctx);
+      return {
+        title: 'They want you living near the factory',
+        body: `${team.name} would like you within twenty minutes of the gate — in the simulator on Tuesdays, in the engineering meetings on Wednesdays, in the building enough that people stop treating you as a visitor. Your home is where your actual life is, and it is four hours away.`,
+        options: [
+          {
+            id: 'move',
+            label: 'Move',
+            detail: 'Become part of the building.',
+            effect: 'Technical +3 · Team bond +16 · Form −2',
+            apply: ({ state }) => {
+              stats(state, { technical: 3, consistency: 1 });
+              bond(state, 16);
+              form(state, -2);
+              return 'You take a flat you do not like in a town you did not choose. By April the engineers are asking what you think before they ask anyone else.';
+            }
+          },
+          {
+            id: 'stay',
+            label: 'Stay where your life is',
+            detail: 'Keep the people. Commute to the racing.',
+            effect: 'Form +2 · Fitness +1.5 · Team bond −11 · Technical −1',
+            apply: ({ state }) => {
+              form(state, 2);
+              stats(state, { fitness: 1.5, technical: -1 });
+              bond(state, -11);
+              return 'You keep your house and your friends and you fly in on Thursdays. The decisions about the car get made on Tuesdays, in a room you are not in.';
+            }
+          }
+        ]
+      };
+    }
+  },
+
+  // ---- midseason ----------------------------------------------------------
+  {
+    id: 'f1_blame_the_car',
+    phase: 'midseason',
+    tag: 'Reputation',
+    weight: 10,
+    // Fires only when the car really is the problem. The player is never told
+    // that number — but the card can be gated on it, which is how the game keeps
+    // the question honest without ever putting a car rating on screen.
+    when: (ctx) => isF1(ctx) && currentTeam(ctx).carPerformance < 70,
+    build: (ctx) => {
+      const team = currentTeam(ctx);
+      return {
+        title: 'Is it you or the car?',
+        body: `Four races without a point. The same question at every press conference, asked more carefully each time. You could say the thing that everyone in the pit lane already believes, or you could keep standing in front of the people who built it.`,
+        options: [
+          {
+            id: 'the_car',
+            label: 'Say the car is the problem',
+            detail: 'True, and everyone knows it. The people who made it are in the room.',
+            effect: `Reputation +8 · Marketability +5 · ${team.shortName} bond −20`,
+            apply: ({ state }) => {
+              rep(state, 8);
+              market(state, 5);
+              bond(state, -20);
+              return 'You say it plainly and the journalists write it down gratefully. The aerodynamicists watch it on a screen in the canteen.';
+            }
+          },
+          {
+            id: 'take_it',
+            label: 'Take it on yourself',
+            detail: 'Protect five hundred people. Wear something that is not yours.',
+            effect: `${team.shortName} bond +20 · Reputation −9 · Form −1`,
+            apply: ({ state }) => {
+              bond(state, 20);
+              rep(state, -9);
+              form(state, -1);
+              return 'You say you have not been extracting what is there. It is not true. The factory knows it is not true, and the way they work for you afterwards changes.';
+            }
+          }
+        ]
+      };
+    }
+  },
+  {
+    id: 'f1_one_upgrade',
+    phase: 'midseason',
+    tag: 'Team orders',
+    weight: 10,
+    when: (ctx) => isF1(ctx) && Boolean(ctx.teammate),
+    build: (ctx) => ({
+      title: 'The factory only built one',
+      body: `There is a single new floor and it will not be a pair until the race after next. ${ctx.teammate!.name} is eleven points ahead of you. The team have asked, in a way that is not really a question, what you think should happen.`,
+      options: [
+        {
+          id: 'demand',
+          label: 'Demand it',
+          detail: 'You are quicker. Say so.',
+          effect: 'Pace +1.5 · Qualifying +1 · Team bond −16',
+          apply: ({ state }) => {
+            stats(state, { pace: 1.5, qualifying: 1 });
+            bond(state, -16);
+            rep(state, 2);
+            return 'You get it, and the weekend goes well, and for the rest of the season the other side of the garage does the minimum for you and nothing more.';
+          }
+        },
+        {
+          id: 'concede',
+          label: 'Give it to him',
+          detail: 'Lose the weekend. Own the room.',
+          effect: 'Team bond +18 · Reputation +7 · Form −2',
+          apply: ({ state }) => {
+            bond(state, 18);
+            rep(state, 7);
+            form(state, -2);
+            return 'You tell them to put it on his car. He outqualifies you by four tenths and thanks you publicly, and every mechanic in that garage now belongs to you.';
+          }
+        }
+      ]
+    })
+  },
+  {
+    id: 'f1_the_post',
+    phase: 'midseason',
+    tag: 'Media',
+    weight: 9,
+    when: (ctx) => isF1(ctx),
+    build: () => ({
+      title: 'You should not have posted that',
+      body: 'Forty minutes after qualifying you wrote what you actually thought, and it is still climbing. Two sponsors have called the team. The replies are overwhelmingly on your side and that is, if anything, making it worse.',
+      options: [
+        {
+          id: 'delete',
+          label: 'Delete it and apologise',
+          detail: 'Everyone in a suit relaxes. Everyone else notices.',
+          effect: 'Team bond +12 · Marketability +5 · Reputation −7',
+          apply: ({ state }) => {
+            bond(state, 12);
+            market(state, 5);
+            rep(state, -7);
+            return 'The apology is three sentences long and was written by someone in communications. The people who liked you for saying it can tell.';
+          }
+        },
+        {
+          id: 'leave_it',
+          label: 'Leave it up',
+          detail: 'Stand behind your own sentence.',
+          outcomes: [
+            {
+              id: 'hero',
+              chance: 55,
+              effect: 'Marketability +16 · Reputation +8 · Team bond −10',
+              detail: 'it becomes who you are',
+              tone: 'good',
+              apply: ({ state }) => {
+                market(state, 16);
+                rep(state, 8);
+                bond(state, -10);
+                return 'It becomes the thing people like about you. A sponsor who wanted it deleted signs you eighteen months later precisely because you did not.';
+              }
+            },
+            {
+              id: 'costly',
+              chance: 45,
+              effect: 'Marketability −12 · Team bond −16 · Form −2',
+              detail: 'a sponsor walks',
+              tone: 'bad',
+              apply: ({ state }) => {
+                market(state, -12);
+                bond(state, -16);
+                form(state, -2);
+                return 'A title sponsor pulls a campaign and the team send you a number for what it cost them. You are asked to attend a media training course in November.';
+              }
+            }
+          ]
+        }
+      ]
+    })
+  },
+  {
+    id: 'f1_telemetry',
+    phase: 'midseason',
+    tag: 'Integrity',
+    weight: 8,
+    when: (ctx) => isF1(ctx) && Boolean(ctx.teammate),
+    build: (ctx) => ({
+      title: 'He should not be showing you this',
+      body: `A performance engineer has left ${ctx.teammate!.name}'s traces open on a screen in a room you both have access to, and then found a reason to leave. He is quicker than you through the long corners and this is exactly where you would find out why.`,
+      options: [
+        {
+          id: 'look',
+          label: 'Look',
+          detail: 'Four minutes that answer a question you have had all year.',
+          outcomes: [
+            {
+              id: 'learned',
+              chance: 65,
+              effect: 'Pace +2.5 · Technical +1.5',
+              detail: 'nobody ever mentions it',
+              tone: 'good',
+              apply: ({ state }) => {
+                stats(state, { pace: 2.5, technical: 1.5 });
+                return 'He brakes eight metres later and carries it differently. You spend a week in the simulator teaching yourself to do the same, and from Spa you are level with him.';
+              }
+            },
+            {
+              id: 'caught',
+              chance: 35,
+              effect: 'Pace +2.5 · Reputation −12 · Team bond −18',
+              detail: 'the access logs are not a secret',
+              tone: 'bad',
+              apply: ({ state }) => {
+                stats(state, { pace: 2.5 });
+                rep(state, -12);
+                bond(state, -18);
+                form(state, -1);
+                return 'You learn what you wanted to learn. Six weeks later a routine audit of who opened what lands on the sporting director’s desk.';
+              }
+            }
+          ]
+        },
+        {
+          id: 'walk',
+          label: 'Walk out',
+          detail: 'Find it yourself, slower, with your own engineer.',
+          effect: 'Technical +1.5 · Team bond +10 · Reputation +4',
+          apply: ({ state }) => {
+            stats(state, { technical: 1.5 });
+            bond(state, 10);
+            rep(state, 4);
+            return 'You close the laptop and go and find your own engineer. It takes you until August to work out what he does, and it is yours when you have it.';
+          }
+        }
+      ]
+    })
+  },
+  {
+    id: 'f1_fuel_saving',
+    phase: 'midseason',
+    tag: 'The moment',
+    weight: 11,
+    when: (ctx) => isF1(ctx),
+    build: () => ({
+      title: 'Lift and coast',
+      body: 'Eleven laps to go, the leader four seconds up the road and fading, and the pit wall in your ear telling you to lift and coast from the hairpin. They have the numbers. You have the corner exit and a very clear view of what is possible.',
+      options: [
+        {
+          id: 'ignore',
+          label: 'Ignore it',
+          detail: 'You will not get this again this year.',
+          outcomes: [
+            {
+              id: 'makes_it',
+              chance: 45,
+              effect: 'Racecraft +2 · Reputation +9 · Form +3 · Team bond −8',
+              detail: 'you get him, and you get home',
+              tone: 'good',
+              apply: ({ state }) => {
+                stats(state, { racecraft: 2 });
+                rep(state, 9);
+                form(state, 3);
+                bond(state, -8);
+                return 'You take him with two laps left and cross the line with the engine screaming about something. The pit wall says nothing on the slow-down lap.';
+              }
+            },
+            {
+              id: 'runs_dry',
+              chance: 55,
+              effect: 'Reputation −6 · Team bond −18 · Form −3',
+              detail: 'you stop on the last lap',
+              tone: 'bad',
+              apply: ({ state }) => {
+                rep(state, -6);
+                bond(state, -18);
+                form(state, -3);
+                return 'You are half a second behind him at the final corner when it cuts out. You coast to a stop in front of the grandstand and the team score nothing.';
+              }
+            }
+          ]
+        },
+        {
+          id: 'obey',
+          label: 'Lift and coast',
+          detail: 'Second place, and a race you will think about for years.',
+          effect: 'Team bond +12 · Consistency +1.5 · Form −2',
+          apply: ({ state }) => {
+            bond(state, 12);
+            stats(state, { consistency: 1.5 });
+            form(state, -2);
+            return 'You finish second by three seconds with fuel in the tank. The engineers are pleased. You are not, and you are still not in December.';
+          }
+        }
+      ]
+    })
+  },
+  {
+    id: 'f1_reserve_takes_over',
+    phase: 'midseason',
+    tag: 'Fitness',
+    weight: 7,
+    when: (ctx) => isF1(ctx) && f1Seasons(ctx.state) >= 2,
+    build: () => ({
+      title: 'You are ill on Saturday morning',
+      body: 'Thirty-nine degrees, and you could not complete a practice run without your vision going. The doctor will sign you off if you ask. The reserve driver is already in the building and has been waiting three years for a Sunday.',
+      options: [
+        {
+          id: 'race',
+          label: 'Race anyway',
+          detail: 'The seat stays yours. You will pay for it.',
+          effect: 'Reputation +7 · Team bond +8 · Fitness −3 · Form −3',
+          apply: ({ state }) => {
+            rep(state, 7);
+            bond(state, 8);
+            stats(state, { fitness: -3, consistency: -1 });
+            form(state, -3);
+            return 'You finish ninth and cannot get out of the car unaided. It takes three weeks to come right and everybody in the paddock heard about it within an hour.';
+          }
+        },
+        {
+          id: 'stand_down',
+          label: 'Stand down',
+          detail: 'Sensible. And he is quick.',
+          outcomes: [
+            {
+              id: 'ordinary',
+              chance: 60,
+              effect: 'Fitness +2 · Form +1',
+              detail: 'he has a quiet afternoon',
+              tone: 'good',
+              apply: ({ state }) => {
+                stats(state, { fitness: 2 });
+                form(state, 1);
+                return 'He finishes fourteenth and thanks everyone very sincerely. You are back in the car in a fortnight, properly well.';
+              }
+            },
+            {
+              id: 'brilliant',
+              chance: 40,
+              effect: 'Fitness +2 · Team bond −14 · Form −2',
+              detail: 'he scores, and people notice',
+              tone: 'bad',
+              apply: ({ state }) => {
+                stats(state, { fitness: 2 });
+                bond(state, -14);
+                form(state, -2);
+                return 'He qualifies sixth and brings it home fifth, and for the rest of the year his name appears in every conversation about your seat.';
+              }
+            }
+          ]
+        }
+      ]
+    })
+  },
+  {
+    id: 'f1_the_birth',
+    phase: 'midseason',
+    tag: 'Family',
+    weight: 9,
+    once: true,
+    when: (ctx) => isF1(ctx) && ctx.state.player.age >= 24,
+    build: () => ({
+      title: 'She is due this week',
+      body: 'The due date sits on top of a double-header eleven thousand kilometres away. The team have a reserve ready and have been extremely careful to say that it is entirely your decision.',
+      options: [
+        {
+          id: 'miss',
+          label: 'Miss the races',
+          detail: 'Be there. Lose two weekends you cannot get back.',
+          effect: 'Form −3 · Reputation −4 · Team bond −10 · Consistency +1.5',
+          apply: ({ state }) => {
+            form(state, -3);
+            rep(state, -4);
+            bond(state, -10);
+            stats(state, { consistency: 1.5 });
+            market(state, 6);
+            return 'You are in the room. The reserve scores four points in your car and you do not care even slightly, which surprises you.';
+          }
+        },
+        {
+          id: 'race',
+          label: 'Race',
+          detail: 'Points now. A phone call at four in the morning from the other side of the world.',
+          effect: 'Form +2 · Team bond +10 · Consistency −1.5',
+          apply: ({ state }) => {
+            form(state, 2);
+            bond(state, 10);
+            stats(state, { consistency: -1.5 });
+            return 'You find out in a hotel corridor in Singapore at ten past four and score eleven points that weekend. It is a thing that comes up, gently, for a very long time afterwards.';
+          }
+        }
+      ]
+    })
+  },
+
+  // ---- offseason ----------------------------------------------------------
+  {
+    id: 'f1_supermodel',
+    phase: 'offseason',
+    tag: 'Fame',
+    weight: 7,
+    once: true,
+    when: (ctx) => isF1(ctx) && ctx.state.player.career.marketability >= 40,
+    build: () => ({
+      title: 'She found you on Instagram',
+      body: 'She is extremely famous in a world that has nothing to do with racing, and she is genuinely interested. Going out with her in public would mean photographers outside restaurants for the rest of the winter, and a readership that has never watched a Grand Prix knowing exactly who you are.',
+      options: [
+        {
+          id: 'yes',
+          label: 'Say yes',
+          detail: 'A much larger life. A much smaller amount of privacy.',
+          effect: 'Marketability +22 · Form −2 · Fitness −1',
+          apply: ({ state }) => {
+            market(state, 22);
+            rep(state, 3);
+            form(state, -2);
+            stats(state, { fitness: -1 });
+            return 'You are on the front of two magazines by February. Your winter training is photographed, discussed, and interrupted, and your agent has never been happier.';
+          }
+        },
+        {
+          id: 'no',
+          label: 'Keep your winter',
+          detail: 'Nobody outside the sport learns your name this year.',
+          effect: 'Fitness +2 · Pace +1 · Consistency +1',
+          apply: ({ state }) => {
+            stats(state, { fitness: 2, pace: 1, consistency: 1 });
+            return 'You do not reply, which is its own kind of answer. You spend the winter doing the work and arrive in March in the best shape of your life.';
+          }
+        }
+      ]
+    })
+  },
+  {
+    id: 'f1_flag_of_convenience',
+    phase: 'offseason',
+    tag: 'Identity',
+    weight: 6,
+    once: true,
+    when: (ctx) => isF1(ctx) && f1Seasons(ctx.state) >= 2,
+    build: (ctx) => {
+      const fee = ctx.rng.range(4, 9);
+      return {
+        title: 'Race under a different flag',
+        body: `A state investment fund will put ${formatMoney(fee)} behind you and open doors that do not open otherwise. The condition is that you take their nationality and race under their flag. Your licence would change. So would the anthem, if you ever won.`,
+        options: [
+          {
+            id: 'switch',
+            label: 'Take the flag',
+            effect: `${formatMoney(fee)} · Marketability +15 · Reputation −11`,
+            apply: ({ state }) => {
+              money(state, fee);
+              market(state, 15);
+              rep(state, -11);
+              return 'The paperwork takes four months and the money is extraordinary. In your home country you become, permanently, a slightly complicated subject.';
+            }
+          },
+          {
+            id: 'keep',
+            label: 'Keep your own',
+            effect: 'Reputation +8 · Consistency +1 · Marketability −6',
+            apply: ({ state }) => {
+              rep(state, 8);
+              stats(state, { consistency: 1 });
+              market(state, -6);
+              return 'You say no, and the fund finds somebody who will say yes within a fortnight. At your home race the grandstand is louder than it has ever been.';
+            }
+          }
+        ]
+      };
+    }
+  },
+  {
+    id: 'f1_already_signed',
+    phase: 'offseason',
+    tag: 'Contract',
+    weight: 9,
+    when: (ctx) => isF1(ctx) && seasonsWithCurrentTeam(ctx.state) >= 2,
+    build: (ctx) => {
+      const team = currentTeam(ctx);
+      return {
+        title: 'You find out before they tell you',
+        body: `A mechanic who has been at ${team.name} for nineteen years could not look at you on Sunday evening, and an hour later somebody sent you a photograph of a seat fitting. Nobody from the team has said a word to you.`,
+        options: [
+          {
+            id: 'confront',
+            label: 'Force the conversation',
+            detail: 'Walk in and make them say it out loud.',
+            effect: `Reputation +6 · Marketability +7 · ${team.shortName} relationship −25`,
+            apply: ({ state }) => {
+              rep(state, 6);
+              market(state, 7);
+              bond(state, -25);
+              rel(state, state.player.teamId, -25);
+              return 'You put the photograph on his desk. He confirms it in eleven words. You leave with your dignity and without a reference.';
+            }
+          },
+          {
+            id: 'outdrive',
+            label: 'Say nothing and out-drive him',
+            detail: 'Let them watch what they are replacing.',
+            outcomes: [
+              {
+                id: 'reconsider',
+                chance: 35,
+                effect: 'Pace +2 · Reputation +8 · Team bond +12',
+                detail: 'they change their minds',
+                tone: 'good',
+                apply: ({ state }) => {
+                  stats(state, { pace: 2, consistency: 1 });
+                  rep(state, 8);
+                  bond(state, 12);
+                  return 'You out-score him across the last five races by a distance that becomes embarrassing, and in November the seat fitting quietly stops being mentioned.';
+                }
+              },
+              {
+                id: 'anyway',
+                chance: 65,
+                effect: 'Pace +2 · Reputation +5 · Team bond −6',
+                detail: 'it was signed in July',
+                tone: 'mixed',
+                apply: ({ state }) => {
+                  stats(state, { pace: 2 });
+                  rep(state, 5);
+                  bond(state, -6);
+                  return 'You drive the best five races of your life and it changes nothing, because the contract was signed in July. Three other teams were watching, which is the only reason it mattered.';
+                }
+              }
+            ]
+          }
+        ]
+      };
+    }
   }
 ];

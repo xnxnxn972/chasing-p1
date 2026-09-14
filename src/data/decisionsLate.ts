@@ -1,5 +1,6 @@
 import type { GameState } from '../game/types';
 import type { DecisionEvent } from './decisionModel';
+import { formatMoney } from '../game/contractEngine';
 import {
   bond,
   carPace,
@@ -299,6 +300,112 @@ export const LATE_EVENTS: DecisionEvent[] = [
               state.retireRequested = true;
               rep(state, 6);
               return 'You announce it on a Thursday, in a small room, without notes. The paddock stands up.';
+            }
+          }
+        ]
+      };
+    }
+  },
+  {
+    id: 'late_last_corner',
+    phase: 'midseason',
+    tag: 'The moment',
+    weight: 26,
+    once: true,
+    // Only fires when the championship is genuinely there to be taken by force:
+    // a close fight, late, with a rival on the road.
+    when: (ctx) =>
+      isF1(ctx) &&
+      Boolean(ctx.rival) &&
+      ctx.state.history.filter((h) => h.series === 'F1' && !h.reserveYear).length >= 3,
+    build: (ctx) => ({
+      title: 'You do not have to lift',
+      body: `The championship comes down to this race and ${ctx.rival!.name} is alongside you into the final corner. If neither of you lifts, neither of you finishes — and on countback the title is yours. He does not know that yet. You have known it since Thursday.`,
+      options: [
+        {
+          id: 'turn_in',
+          label: 'Turn in anyway',
+          detail: 'The title, and a thing people will show on television for forty years.',
+          outcomes: [
+            {
+              id: 'title',
+              chance: 70,
+              effect: 'Reputation −22 · Marketability +12 · Form +2',
+              detail: 'you take it, and everyone knows how',
+              tone: 'mixed',
+              apply: ({ state }) => {
+                rep(state, -22);
+                market(state, 12);
+                form(state, 2);
+                return 'You turn in. Both cars are in the gravel before the apex and the championship is yours by four points. The stewards deliberate for six hours and decide they cannot prove it.';
+              }
+            },
+            {
+              id: 'backfires',
+              chance: 30,
+              effect: 'Reputation −26 · Team bond −20 · Form −4',
+              detail: 'he gets through, and you do not',
+              tone: 'bad',
+              apply: ({ state }) => {
+                rep(state, -26);
+                bond(state, -20);
+                form(state, -4);
+                return 'You turn in, he is already past, and you put yourself into the wall alone in front of a global audience. He wins the title and you spend the winter explaining.';
+              }
+            }
+          ]
+        },
+        {
+          id: 'lift',
+          label: 'Lift',
+          detail: 'Lose it cleanly, in front of everyone who was watching to see what you would do.',
+          effect: 'Reputation +18 · Team bond +10 · Form −3',
+          apply: ({ state }) => {
+            rep(state, 18);
+            bond(state, 10);
+            form(state, -3);
+            stats(state, { consistency: 1 });
+            return 'You lift. He takes the corner and the championship, and finds you in the paddock afterwards to say something he does not say in front of the cameras.';
+          }
+        }
+      ]
+    })
+  },
+  {
+    id: 'late_buy_junior_team',
+    phase: 'offseason',
+    tag: 'Legacy',
+    weight: 11,
+    once: true,
+    when: (ctx) =>
+      isF1(ctx) && ctx.state.player.age >= 31 && ctx.state.player.career.wealth >= 12,
+    build: (ctx) => {
+      const cost = ctx.rng.range(8, 16);
+      return {
+        title: 'The team that gave you your first seat is for sale',
+        body: `They are two months from closing. ${formatMoney(cost)} buys the whole thing — eleven staff, two trucks, and the workshop where somebody took a chance on a sixteen-year-old nobody had heard of.`,
+        options: [
+          {
+            id: 'buy',
+            label: 'Buy it',
+            detail: 'Most of what you have, for something that outlasts your driving.',
+            effect: `−${formatMoney(cost)} · Reputation +14 · Marketability +9`,
+            apply: ({ state }) => {
+              money(state, -cost);
+              rep(state, 14);
+              market(state, 9);
+              return 'You buy it and keep every one of them employed. Within four years two of their drivers are in Formula 2, and one of them mentions your name in every interview.';
+            }
+          },
+          {
+            id: 'decline',
+            label: 'Let it go',
+            detail: 'It is a business, and it is not a good one.',
+            effect: 'Consistency +1 · Reputation −6',
+            apply: ({ state }) => {
+              stats(state, { consistency: 1 });
+              rep(state, -6);
+              return 'You send a message saying you are sorry and you cannot. It closes in February, and the man who gave you your first drive sells the workshop to a company that makes conservatories.';
             }
           }
         ]
