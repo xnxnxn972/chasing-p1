@@ -2,6 +2,7 @@ import type { DecisionEvent } from './decisionModel';
 import { JUNIOR_EVENTS } from './decisionsJunior';
 import { F1_EVENTS } from './decisionsF1';
 import { LATE_EVENTS } from './decisionsLate';
+import { RESERVE_EVENTS } from './decisionsReserve';
 
 /**
  * Decisions are the game. Each season fires roughly one of these; every option
@@ -11,7 +12,8 @@ import { LATE_EVENTS } from './decisionsLate';
 export const DECISION_EVENTS: DecisionEvent[] = [
   ...JUNIOR_EVENTS,
   ...F1_EVENTS,
-  ...LATE_EVENTS
+  ...LATE_EVENTS,
+  ...RESERVE_EVENTS
 ];
 
 export type {

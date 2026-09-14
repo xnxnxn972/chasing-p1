@@ -158,6 +158,12 @@ export function carPace(state: GameState, teamId: string, amount: number): void 
 export const isJunior = (ctx: DecisionContext) => ctx.state.player.series !== 'F1';
 export const isF1 = (ctx: DecisionContext) =>
   ctx.state.player.series === 'F1' && !ctx.state.reserveTeamId;
+/**
+ * A reserve year. Deliberately NOT covered by isF1 — a reserve driver's life is
+ * a different job — which also means almost no F1 card is eligible during one,
+ * and reserve cards have to be written for it specifically.
+ */
+export const isReserve = (ctx: DecisionContext) => Boolean(ctx.state.reserveTeamId);
 export const currentTeam = (ctx: DecisionContext) => ctx.state.teams[ctx.state.player.teamId];
 
 export function f1Seasons(state: GameState): number {

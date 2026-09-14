@@ -783,6 +783,17 @@ function ladderExhausted(state: GameState): boolean {
   return false;
 }
 
+/**
+ * Tuning for the reserve-driver arc, targeted at roughly half of careers seeing
+ * a reserve year and a fifth seeing three or more. Ungated it was 71% and 57%,
+ * with careers spending up to eight seasons in the waiting room; the cap is
+ * what stops that without removing the arc.
+ */
+const RESERVE_APPEAL_BAR = 70;
+const RESERVE_MAX_AGE = 26;
+const RESERVE_MAX_SEASONS = 4;
+const RESERVE_CHANCE = 0.6;
+
 function buildOffers(state: GameState, rng: Rng): ContractOffer[] {
   const offers: ContractOffer[] = [];
   const hasBeenF1 = state.history.some((h) => h.series === 'F1');
@@ -800,14 +811,28 @@ function buildOffers(state: GameState, rng: Rng): ContractOffer[] {
 
   if (offers.length === 0 && (state.player.series === 'F2' || hasBeenF1)) {
     // No race seat: a reserve role keeps a career alive for a year.
+    //
+    // THIS USED TO BE THE MOST COMMON STORY IN THE GAME. 71% of careers had a
+    // reserve year and 57% had three or more, because whenever no race seat
+    // existed this was the only Formula 1 option on the table — so it was taken
+    // again, and again, and the career quietly became a waiting room. It is
+    // also where THE SUPER-SUB and the cluster of careers ending at exactly
+    // twelve seasons came from.
+    //
+    // Being a reserve should be a rare, specific arc: a young driver the
+    // paddock actively wants, kept close for a season or two until a seat
+    // opens. Four things now have to be true at once, and the hard cap is the
+    // one that matters most — nobody waits five years.
     const appeal = playerAppeal(state);
     const reserveTeam = [...F1_TEAM_IDS]
       .sort((a, b) => (state.relationships[b] ?? 0) - (state.relationships[a] ?? 0))
-      .find((id) => appeal + (state.relationships[id] ?? 0) * 0.1 > 66);
-    // Reserve is a young driver's way in, not an old driver's waiting room. A
-    // veteran with no race seat is out of the sport, which is what actually
-    // ends most careers.
-    if (reserveTeam && state.player.age <= 27) offers.push(makeReserveOffer(state, reserveTeam));
+      .find((id) => appeal + (state.relationships[id] ?? 0) * 0.1 > RESERVE_APPEAL_BAR);
+    const canBeReserve =
+      reserveTeam &&
+      state.player.age <= RESERVE_MAX_AGE &&
+      state.player.reserveSeasons < RESERVE_MAX_SEASONS &&
+      rng.chance(RESERVE_CHANCE);
+    if (canBeReserve) offers.push(makeReserveOffer(state, reserveTeam));
   }
 
   // The junior ladder stays open while the player is young enough and is still
