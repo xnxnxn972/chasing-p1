@@ -209,6 +209,15 @@
   .key.hatch b { background: var(--raised); border: 1px solid var(--rule);
     background-image: repeating-linear-gradient(45deg, var(--ink-faint) 0 1px, transparent 1px 4px); }
 
+  /* A dashboard that is missing data has to say so above the numbers, not in
+     a footnote under them. */
+  .truncation {
+    margin-top: 22px; padding: 14px 16px;
+    border: 1px solid rgba(255,158,61,.45); background: var(--flag-wash);
+    color: var(--ink); font-size: 13.5px; max-width: 80ch;
+  }
+  .truncation b { color: var(--flag); }
+
   /* ---- the finding ---------------------------------------------------- */
   .flagbox {
     border: 1px solid rgba(255,158,61,.35); background: var(--flag-wash);
@@ -264,6 +273,8 @@
   <h1>Launch day on the pit wall</h1>
   <p class="dek">Every career played since the game was posted to Reddit, read the way a team reads a
     timing screen. One row per career, written by the game itself &mdash; not a page-view counter.</p>
+
+  <div class="truncation" id="truncation" hidden></div>
 
   <div class="hero" id="hero"></div>
 
@@ -403,6 +414,16 @@
   $('freshness').innerHTML = '<b>This page is a snapshot</b>, not a live feed &mdash; the figures were ' +
     'read at ' + gen.toISOString().slice(0, 16).replace('T', ' ') + ' UTC and are baked in. ' +
     'Rerun <code>tools/dashboard.mjs</code> and republish to refresh it.';
+
+  // ---- incomplete data, said out loud -----------------------------------
+  if (D.truncated) {
+    var tr = $('truncation');
+    tr.hidden = false;
+    tr.innerHTML = '<b>These figures are incomplete.</b> The log has outgrown the ' +
+      'reader’s 2,000-row ceiling, so the oldest careers — including part of ' +
+      'launch morning — could not be fetched and are missing from every chart ' +
+      'on this page. Totals are floors, not counts.';
+  }
 
   // ---- headline figures -------------------------------------------------
   var T = D.totals;

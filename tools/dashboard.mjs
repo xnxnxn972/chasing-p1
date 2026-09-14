@@ -39,31 +39,86 @@ if (!token) {
 // Fetch
 // ---------------------------------------------------------------------------
 
-async function fetchPage(offset) {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/rpc/cp_sessions_admin?limit=${PAGE}&offset=${offset}`,
-    {
-      method: 'POST',
-      headers: {
-        apikey: ANON_KEY,
-        Authorization: `Bearer ${ANON_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ p_token: token, p_limit: 2000 })
-    }
-  );
+async function fetchPage(body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/cp_sessions_admin?limit=${PAGE}`, {
+    method: 'POST',
+    headers: {
+      apikey: ANON_KEY,
+      Authorization: `Bearer ${ANON_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
   return res.json();
 }
 
+/**
+ * Page backwards through the log by TIMESTAMP, not by offset.
+ *
+ * Offset paging silently truncated at 2,000 rows: the SQL function caps its own
+ * output, PostgREST's offset pages within that cap, and running past it looks
+ * exactly like reaching the end of the table. Launch morning quietly vanished
+ * from every chart. A cursor cannot be defeated by a row cap, because each
+ * request asks for rows older than the last one we actually received.
+ *
+ * Falls back to offset paging when the database has not yet had
+ * supabase-paginate-admin.sql applied — and says so, loudly, rather than
+ * reporting a truncated total as if it were complete.
+ */
 async function fetchAll() {
   const rows = [];
-  for (let offset = 0; ; offset += PAGE) {
-    const page = await fetchPage(offset);
+  let before = null;
+  let cursorWorks = true;
+
+  for (;;) {
+    const body = { p_token: token, p_limit: PAGE };
+    if (before) body.p_before = before;
+    let page;
+    try {
+      page = await fetchPage(body);
+    } catch (err) {
+      // The cursor only appears from the SECOND request onwards, so an
+      // unmigrated database fails here rather than on the first page.
+      if (/p_before|PGRST202/i.test(String(err))) {
+        cursorWorks = false;
+        break;
+      }
+      throw err;
+    }
+    if (page.length === 0) break;
     rows.push(...page);
+    const oldest = page[page.length - 1].created_at;
+    if (oldest === before) break; // no progress; stop rather than loop forever
+    before = oldest;
     if (page.length < PAGE) break;
   }
-  return rows;
+
+  if (cursorWorks) return { rows, truncated: false };
+
+  // Legacy path: offset paging, which cannot see past the function's own cap.
+  const legacy = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/cp_sessions_admin?limit=${PAGE}&offset=${offset}`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: ANON_KEY,
+          Authorization: `Bearer ${ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ p_token: token, p_limit: 2000 })
+      }
+    );
+    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    const page = await res.json();
+    legacy.push(...page);
+    if (page.length < PAGE) break;
+  }
+  // 2000 is the old function's hard ceiling. Landing exactly on it means older
+  // careers exist and are unreachable.
+  return { rows: legacy, truncated: legacy.length >= 2000 };
 }
 
 // ---------------------------------------------------------------------------
@@ -253,8 +308,9 @@ function build(rows) {
 
 // ---------------------------------------------------------------------------
 
-const rows = await fetchAll();
+const { rows, truncated } = await fetchAll();
 const data = build(rows);
+data.truncated = truncated;
 const here = dirname(fileURLToPath(import.meta.url));
 
 // The template carries the whole page; only the numbers are substituted. Keeping
@@ -275,4 +331,11 @@ console.log(
     `${data.totals.devExcluded} dev) -> ${data.totals.careers} careers, ` +
     `${data.totals.visits} visits, ${data.hours.length} hourly buckets`
 );
+if (truncated) {
+  console.warn("");
+  console.warn("  !! TRUNCATED at the old 2,000-row ceiling.");
+  console.warn("     Older careers exist and cannot be reached.");
+  console.warn("     Run supabase-paginate-admin.sql, then re-run this.");
+  console.warn("");
+}
 console.log(`wrote ${htmlOut}`);
