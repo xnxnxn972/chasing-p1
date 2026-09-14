@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://xnxnxn972.github.io/chasing-p1/sitemap.xml
