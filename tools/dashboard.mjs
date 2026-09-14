@@ -167,8 +167,19 @@ function series(rows, bucketOf) {
 const hourKey = (iso) => iso.slice(0, 13) + ':00';
 const dayKey = (iso) => iso.slice(0, 10);
 
+/**
+ * Careers played against a dev server. They are tagged env='dev' in the table,
+ * but the admin reader does not return that column, so they are identified by
+ * the only thing that does come back: a localhost referrer. Three such rows
+ * (mine, from verifying a build) had already reached the published dashboard as
+ * a traffic source called "localhost".
+ */
+function isDev(row) {
+  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(row.referrer || '');
+}
+
 function build(rows) {
-  const post = rows.filter((r) => Date.parse(r.created_at) >= POST_AT);
+  const post = rows.filter((r) => Date.parse(r.created_at) >= POST_AT && !isDev(r));
   for (const r of post) {
     r._source = sourceOf(r);
     r._via = viaOf(r);
@@ -203,7 +214,8 @@ function build(rows) {
       repeatVisits: counts.filter((c) => c > 1).length,
       deepVisits: counts.filter((c) => c >= 5).length,
       maxCareers: counts[0] ?? 0,
-      prePost: rows.length - post.length
+      prePost: rows.filter((r) => Date.parse(r.created_at) < POST_AT).length,
+      devExcluded: rows.filter((r) => Date.parse(r.created_at) >= POST_AT && isDev(r)).length
     },
     hours,
     days: series(post, dayKey),
@@ -259,7 +271,8 @@ const htmlOut = join(here, '..', 'dashboard.html');
 writeFileSync(htmlOut, html);
 writeFileSync(join(here, '..', 'dashboard.data.json'), JSON.stringify(data, null, 2));
 console.log(
-  `fetched ${rows.length} rows (${data.totals.prePost} pre-post) -> ${data.totals.careers} careers, ` +
+  `fetched ${rows.length} rows (${data.totals.prePost} pre-post, ` +
+    `${data.totals.devExcluded} dev) -> ${data.totals.careers} careers, ` +
     `${data.totals.visits} visits, ${data.hours.length} hourly buckets`
 );
 console.log(`wrote ${htmlOut}`);

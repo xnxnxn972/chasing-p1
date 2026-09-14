@@ -8,6 +8,7 @@ import { SummaryScreen } from './screens/SummaryScreen';
 import { initTelemetry, trackCareerEnd, trackCareerStart, trackExtra, trackProgress } from './game/telemetry';
 import { computeTotals, careerScore, careerTitle } from './game/careerVerdict';
 import { ambitionOutcome, nextAmbition } from './game/unfinishedBusiness';
+import { incomingChallenge } from './game/challenge';
 
 export function App() {
   const [state, setState] = useState<GameState | null>(null);
@@ -16,6 +17,15 @@ export function App() {
   // memory rather than storage on purpose: it is a hook for the player who is
   // still here, not a commitment we ask them to honour a week later.
   const [ambitionId, setAmbitionId] = useState<string | undefined>(undefined);
+  // Read once, from the URL this visit landed on. It survives "play again"
+  // within the visit, so a challenged player keeps the target until they beat it.
+  const [challengeScore] = useState<number | undefined>(() => incomingChallenge() ?? undefined);
+  // The best score this visit has managed, which is what makes a career a
+  // personal best and decides whether the share prompt is worth showing.
+  const [bestScore, setBestScore] = useState(0);
+  // Which career of this visit is being played, so "your best yet" is only
+  // ever said when there is a previous career to be better than.
+  const [careerNumber, setCareerNumber] = useState(0);
 
   useEffect(() => initTelemetry(), []);
 
@@ -44,22 +54,29 @@ export function App() {
     return (
       <SetupScreen
         ambitionId={ambitionId}
+        challengeScore={challengeScore}
         onStart={(next) => {
           trackCareerStart(next);
           setSetup(next);
-          setState(createCareer(next));
+          setCareerNumber((n) => n + 1);
+          setState(createCareer({ ...next, challengeScore }));
         }}
       />
     );
   }
 
   const restart = () => {
+    // Fold the finished career into the running best HERE rather than when it
+    // finished: the summary screen is still comparing against the previous best
+    // to decide whether this was a personal best, and updating it any earlier
+    // makes that comparison false the instant it is rendered.
+    if (state) setBestScore((b) => Math.max(b, careerScore(state, computeTotals(state))));
     setState(null);
     setSetup(null);
   };
 
   if (state.finished) {
-    return <SummaryScreen state={state} onRestart={restart} />;
+    return <SummaryScreen state={state} onRestart={restart} previousBest={bestScore} careerIndex={careerNumber} />;
   }
 
   return (

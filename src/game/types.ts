@@ -301,6 +301,8 @@ export interface CareerTotals {
 export interface GameState {
   /** The ambition carried in from the previous career, if any. */
   ambitionId?: string;
+  /** A score to beat, from a challenge link someone shared. */
+  challengeScore?: number;
   seed: string;
   year: number;
   cursor: Cursor;

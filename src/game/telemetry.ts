@@ -163,7 +163,7 @@ const LANDING_TAGS: Record<string, string> = (() => {
   if (typeof location === 'undefined') return tags;
   try {
     const q = new URLSearchParams(location.search);
-    for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 's', 'src', 'ref']) {
+    for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 's', 'src', 'ref', 'beat']) {
       const value = q.get(key);
       if (value) tags[key === 's' ? 'src' : key] = value.slice(0, 60);
     }

@@ -54,6 +54,8 @@ export interface CareerSetup {
   seed: string;
   /** Carried over from the previous career — the thing it failed to do. */
   ambitionId?: string;
+  /** A score to beat, from a challenge link. */
+  challengeScore?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -119,6 +121,7 @@ export function createCareer(setup: CareerSetup): GameState {
     regulationYears: planRegulationYears(START_YEAR, rng),
     joinPaceRank: {},
     ambitionId: setup.ambitionId,
+    challengeScore: setup.challengeScore,
     finished: false
   };
 

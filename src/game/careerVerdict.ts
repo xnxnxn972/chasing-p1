@@ -54,19 +54,27 @@ export function careerScore(state: GameState, totals: CareerTotals): number {
 }
 
 /**
- * A rough population percentile. Not a real leaderboard yet — the shape is here
- * so a daily-seed mode can drop a real distribution in later.
+ * Where this score sits among real careers.
+ *
+ * The first version of this was guesswork written before anyone had played:
+ * it called 12,000 points "TOP 0.1%" when 17% of finished careers clear that,
+ * and 5,000 "TOP 8%" when it is really top 30%. Anyone sharing a card was
+ * telling their friends something untrue by two orders of magnitude.
+ *
+ * These tiers are measured from 1,574 finished careers. They will drift as the
+ * population grows and as the game changes; re-derive them from the session log
+ * rather than adjusting them by feel.
  */
 export function scorePercentile(score: number): string {
   const tiers: [number, string][] = [
-    [12000, 'TOP 0.1%'],
-    [9000, 'TOP 1%'],
-    [7000, 'TOP 3%'],
-    [5000, 'TOP 8%'],
-    [3200, 'TOP 15%'],
-    [1800, 'TOP 30%'],
-    [800, 'TOP 55%'],
-    [200, 'TOP 80%']
+    [43168, 'TOP 0.1%'],
+    [32885, 'TOP 1%'],
+    [26995, 'TOP 3%'],
+    [20922, 'TOP 8%'],
+    [13665, 'TOP 15%'],
+    [5126, 'TOP 30%'],
+    [816, 'TOP 55%'],
+    [88, 'TOP 80%']
   ];
   for (const [threshold, label] of tiers) if (score >= threshold) return label;
   return 'TOP 99%';

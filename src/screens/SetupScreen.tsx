@@ -88,10 +88,12 @@ function randomName(code: string): string {
 
 export function SetupScreen({
   onStart,
-  ambitionId
+  ambitionId,
+  challengeScore
 }: {
   onStart: (setup: CareerSetup) => void;
   ambitionId?: string;
+  challengeScore?: number;
 }) {
   const [name, setName] = useState('');
   const [number, setNumber] = useState(27);
@@ -117,12 +119,22 @@ export function SetupScreen({
         <div className="tagline">{TAGLINE}</div>
       </div>
 
-      {ambition && (
-        <div className="ambition-banner">
-          <span className="label">Unfinished business</span>
-          <strong>{ambition.label}</strong>
-          <span className="ambition-missed">{ambition.missed}</span>
+      {challengeScore ? (
+        <div className="ambition-banner is-challenge">
+          <span className="label">You have been challenged</span>
+          <strong>Beat {challengeScore.toLocaleString()}</strong>
+          <span className="ambition-missed">
+            Someone sent you their career. Build a better one.
+          </span>
         </div>
+      ) : (
+        ambition && (
+          <div className="ambition-banner">
+            <span className="label">Unfinished business</span>
+            <strong>{ambition.label}</strong>
+            <span className="ambition-missed">{ambition.missed}</span>
+          </div>
+        )
       )}
 
       <div className="pillars">

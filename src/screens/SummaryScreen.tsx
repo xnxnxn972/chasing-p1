@@ -14,8 +14,20 @@ import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
 import { canShareImages, gameUrl, shareCareerCard, shareDataFor } from '../components/shareCard';
 import { trackShare } from '../game/telemetry';
 import { ambitionOutcome, nextAmbition } from '../game/unfinishedBusiness';
+import { challengeOutcome, shouldInviteChallenge } from '../game/challenge';
 
-export function SummaryScreen({ state, onRestart }: { state: GameState; onRestart: () => void }) {
+export function SummaryScreen({
+  state,
+  onRestart,
+  previousBest = 0,
+  careerIndex = 1
+}: {
+  state: GameState;
+  onRestart: () => void;
+  /** Best score of the careers played BEFORE this one, this visit. */
+  previousBest?: number;
+  careerIndex?: number;
+}) {
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareNote, setShareNote] = useState<string | null>(null);
@@ -28,6 +40,10 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
   // What the last career asked of this one, and what this one leaves behind.
   const carried = ambitionOutcome(state, totals);
   const next = nextAmbition(state, totals);
+  // A challenge someone sent, and whether this career answered it.
+  const challenge = challengeOutcome(state.challengeScore, score);
+  // Whether this is the moment worth interrupting someone to share.
+  const invite = shouldInviteChallenge({ score, careerIndex, previousBest });
 
   const f1Seasons = state.history.filter((h) => h.series === 'F1' && !h.reserveYear);
   const teamPath: string[] = [];
@@ -44,6 +60,7 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
     `${totals.f1Wins} wins · ${totals.f1Podiums} podiums · ${totals.f1Poles} poles`,
     teamPath.join(' → ') || 'Never reached Formula 1',
     `Peak OVR ${peakOverall} · Career score ${score.toLocaleString()} (${percentile})`,
+    'Think you can beat that?',
     `CHASING P1 — ${TAGLINE.toUpperCase()}`,
     gameUrl()
   ].join('\n');
@@ -103,6 +120,17 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
             <span className="score">{score.toLocaleString()}</span>
             <span className="percentile">{percentile}</span>
           </div>
+          {invite && (
+            <div className="share-invite">
+              <span className="label">Your best yet</span>
+              <p>
+                Career {careerIndex}, and better than anything you have managed today
+                {previousBest > 0 ? ` — ${previousBest.toLocaleString()} was your last best.` : '.'}{' '}
+                Send it to someone and see if they can beat {score.toLocaleString()}.
+              </p>
+            </div>
+          )}
+
           <div className="actions" style={{ marginTop: 18 }}>
             <button
               className="btn btn-primary"
@@ -127,6 +155,18 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
           {/* The career is over; this is the only thing on the page that points
               forward. It sits directly under the buttons for that reason. */}
           <div className="unfinished">
+            {challenge && (
+              <div className={`ambition-result${challenge.beaten ? ' is-met' : ''}`}>
+                <span className="label">
+                  {challenge.beaten ? 'Challenge beaten' : 'Challenge not beaten'}
+                </span>
+                <p>
+                  {challenge.beaten
+                    ? `You were set ${challenge.target.toLocaleString()} to beat. You finished ${challenge.margin.toLocaleString()} clear of it.`
+                    : `You were set ${challenge.target.toLocaleString()} to beat and came up ${challenge.margin.toLocaleString()} short.`}
+                </p>
+              </div>
+            )}
             {carried && (
               <div className={`ambition-result${carried.met ? ' is-met' : ''}`}>
                 <span className="label">{carried.met ? 'Ambition met' : 'Ambition missed'}</span>

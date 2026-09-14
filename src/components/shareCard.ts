@@ -323,10 +323,13 @@ export async function renderShareCard(data: ShareData): Promise<Blob> {
  * without it every person who arrives through someone's shared career is
  * indistinguishable from someone who typed the address in.
  */
-export function gameUrl(): string {
+export function gameUrl(beatScore?: number): string {
   if (typeof location === 'undefined') return '';
   const base = `${location.origin}${location.pathname}`.replace(/index\.html$/, '');
-  return `${base}?s=share`;
+  // The score rides along so the person who opens the link is given a target
+  // rather than just a homepage. Nothing identifying the sender is included.
+  const beat = beatScore && beatScore > 0 ? `&beat=${Math.round(beatScore)}` : '';
+  return `${base}?s=share${beat}`;
 }
 
 export type ShareResult = 'shared' | 'downloaded' | 'cancelled' | 'failed';

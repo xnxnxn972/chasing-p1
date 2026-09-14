@@ -1570,3 +1570,43 @@ details.more[open] > summary::before {
   border-color: var(--lime);
   background: var(--lime-wash);
 }
+
+/* A challenge is a personal message from whoever sent the link, so it outranks
+   the carried ambition and looks like it came from someone. */
+.ambition-banner.is-challenge {
+  border-left-color: var(--lime);
+  background: var(--lime-wash);
+}
+
+/* ---------------------------------------------------------------------------
+   THE SHARE PROMPT
+   Fires on roughly one finished career in fifteen — a personal best that also
+   clears the bar where people share unprompted a quarter of the time. It sits
+   directly above the share button rather than replacing it, so it reads as an
+   invitation and never as a wall.
+   --------------------------------------------------------------------------- */
+.share-invite {
+  margin-top: 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--lime);
+  border-radius: 3px;
+  background: var(--lime-wash);
+  box-shadow: 0 0 26px var(--lime-glow);
+}
+
+.share-invite .label {
+  display: block;
+  font-family: var(--display);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lime);
+}
+
+.share-invite p {
+  margin: 7px 0 0;
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
