@@ -52,6 +52,8 @@ export interface CareerSetup {
   nationality: string;
   style: DrivingStyle;
   seed: string;
+  /** Carried over from the previous career — the thing it failed to do. */
+  ambitionId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +118,7 @@ export function createCareer(setup: CareerSetup): GameState {
     retireRequested: false,
     regulationYears: planRegulationYears(START_YEAR, rng),
     joinPaceRank: {},
+    ambitionId: setup.ambitionId,
     finished: false
   };
 

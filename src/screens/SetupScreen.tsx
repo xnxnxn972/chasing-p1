@@ -4,6 +4,7 @@ import type { CareerSetup } from '../game/careerEngine';
 import { NATIONALITIES } from '../data/nationalities';
 import { makeSeed } from '../game/random';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
+import { ambitionById } from '../game/unfinishedBusiness';
 
 const STYLE_CARDS: {
   id: DrivingStyle;
@@ -31,11 +32,12 @@ const STYLE_CARDS: {
   }
 ];
 
-/** The four pillars from the brand sheet, with the same line-art icons. */
+/** The four pillars, cut to one clause each so the form is reachable without
+    scrolling on a phone — where four visits in five come from. */
 const PILLARS: { name: string; copy: string; icon: React.ReactNode }[] = [
   {
     name: 'Build',
-    copy: 'Develop your driver. Improve performance. Make the right calls.',
+    copy: 'Develop your driver.',
     icon: (
       <svg viewBox="0 0 24 24" width="24" height="24">
         <path d="M3 20V13M9 20V8M15 20V11M21 20V4" strokeLinecap="square" />
@@ -44,7 +46,7 @@ const PILLARS: { name: string; copy: string; icon: React.ReactNode }[] = [
   },
   {
     name: 'Compete',
-    copy: 'Race. Adapt. Outthink rivals. Prove yourself.',
+    copy: 'Outthink the grid.',
     icon: (
       <svg viewBox="0 0 24 24" width="24" height="24">
         <path d="M12 3a9 9 0 0 1 0 18 9 9 0 0 1 0-18Z" />
@@ -54,7 +56,7 @@ const PILLARS: { name: string; copy: string; icon: React.ReactNode }[] = [
   },
   {
     name: 'Achieve',
-    copy: 'Championships. Lasting legacy. Become the best.',
+    copy: 'Chase the title.',
     icon: (
       <svg viewBox="0 0 24 24" width="24" height="24">
         <path d="M7 3h10v6a5 5 0 0 1-10 0V3Z" />
@@ -64,7 +66,7 @@ const PILLARS: { name: string; copy: string; icon: React.ReactNode }[] = [
   },
   {
     name: 'Beyond',
-    copy: 'More than races. A career that defines you.',
+    copy: 'Leave a legacy.',
     icon: (
       <svg viewBox="0 0 24 24" width="24" height="24">
         <path d="M8.5 12a3.5 3.5 0 1 1 3.5 3.5c-2 0-2.5-7-4.5-7a3.5 3.5 0 0 0 0 7c2 0 2.5-7 4.5-7a3.5 3.5 0 0 1 0 7" />
@@ -73,7 +75,24 @@ const PILLARS: { name: string; copy: string; icon: React.ReactNode }[] = [
   }
 ];
 
-export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void }) {
+/**
+ * A name in the style of the chosen nationality. Offered on a button rather
+ * than pre-filled: a name the player typed is a name they are attached to, and
+ * that attachment is most of what makes a career theirs.
+ */
+function randomName(code: string): string {
+  const nat = NATIONALITIES.find((n) => n.code === code) ?? NATIONALITIES[0];
+  const pick = <T,>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)];
+  return `${pick(nat.firstNames)} ${pick(nat.lastNames)}`;
+}
+
+export function SetupScreen({
+  onStart,
+  ambitionId
+}: {
+  onStart: (setup: CareerSetup) => void;
+  ambitionId?: string;
+}) {
   const [name, setName] = useState('');
   const [number, setNumber] = useState(27);
   const [nationality, setNationality] = useState('GB');
@@ -83,6 +102,8 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
   // old value of a state variable, so a useState guard does not hold.
   const starting = useRef(false);
   const [started, setStarted] = useState(false);
+
+  const ambition = ambitionById(ambitionId);
 
   const trimmed = name.trim();
   const valid = trimmed.length > 0 && number >= 2 && number <= 99;
@@ -95,6 +116,14 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
         <BrandLockup size="lg" />
         <div className="tagline">{TAGLINE}</div>
       </div>
+
+      {ambition && (
+        <div className="ambition-banner">
+          <span className="label">Unfinished business</span>
+          <strong>{ambition.label}</strong>
+          <span className="ambition-missed">{ambition.missed}</span>
+        </div>
+      )}
 
       <div className="pillars">
         {PILLARS.map((pillar) => (
@@ -120,21 +149,37 @@ export function SetupScreen({ onStart }: { onStart: (setup: CareerSetup) => void
           setStarted(true);
           // The seed is generated here and never shown: the engine needs one for
           // determinism, the player does not need to think about it.
-          onStart({ name: trimmed, number, nationality, style, seed: makeSeed() });
+          onStart({ name: trimmed, number, nationality, style, seed: makeSeed(), ambitionId });
         }}
       >
         <div className="field-row">
           <div className="field">
             <label htmlFor="name">Name</label>
-            <input
-              id="name"
-              className="input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your driver's name"
-              maxLength={28}
-              autoFocus
-            />
+            <div className="input-with-action">
+              <input
+                id="name"
+                className="input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your driver's name"
+                maxLength={28}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="dice"
+                onClick={() => setName(randomName(nationality))}
+                title="Suggest a name"
+                aria-label="Suggest a driver name"
+              >
+                <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+                  <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
+                  <circle cx="8.5" cy="8.5" r="1.35" fill="currentColor" stroke="none" />
+                  <circle cx="15.5" cy="15.5" r="1.35" fill="currentColor" stroke="none" />
+                  <circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none" />
+                </svg>
+              </button>
+            </div>
           </div>
           <div className="field">
             <label htmlFor="number">Number</label>

@@ -5,12 +5,17 @@ import { createCareer } from './game/careerEngine';
 import { SetupScreen } from './screens/SetupScreen';
 import { CareerScreen } from './screens/CareerScreen';
 import { SummaryScreen } from './screens/SummaryScreen';
-import { initTelemetry, trackCareerEnd, trackCareerStart, trackProgress } from './game/telemetry';
+import { initTelemetry, trackCareerEnd, trackCareerStart, trackExtra, trackProgress } from './game/telemetry';
 import { computeTotals, careerScore, careerTitle } from './game/careerVerdict';
+import { ambitionOutcome, nextAmbition } from './game/unfinishedBusiness';
 
 export function App() {
   const [state, setState] = useState<GameState | null>(null);
   const [setup, setSetup] = useState<CareerSetup | null>(null);
+  // The thing the last career failed to do, carried into the next one. Held in
+  // memory rather than storage on purpose: it is a hook for the player who is
+  // still here, not a commitment we ask them to honour a week later.
+  const [ambitionId, setAmbitionId] = useState<string | undefined>(undefined);
 
   useEffect(() => initTelemetry(), []);
 
@@ -19,6 +24,7 @@ export function App() {
   useEffect(() => {
     if (!state || !finished) return;
     const totals = computeTotals(state);
+    const outcome = ambitionOutcome(state, totals);
     trackCareerEnd({
       seasons: state.history.length,
       reachedF1: totals.f1Starts > 0,
@@ -26,6 +32,10 @@ export function App() {
       careerTitle: careerTitle(state, totals),
       score: careerScore(state, totals)
     });
+    // Whether the carried ambition was actually delivered is the one number
+    // that says if this feature works at all.
+    if (outcome) trackExtra('ambition', outcome.ambition.id + (outcome.met ? ' ✓' : ' ✗'));
+    setAmbitionId(nextAmbition(state, totals)?.id);
     // Only when the career transitions to finished.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
@@ -33,6 +43,7 @@ export function App() {
   if (!state || !setup) {
     return (
       <SetupScreen
+        ambitionId={ambitionId}
         onStart={(next) => {
           trackCareerStart(next);
           setSetup(next);

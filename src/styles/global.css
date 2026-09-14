@@ -296,9 +296,13 @@ h4 {
   padding: 22px 20px 56px;
 }
 
+/* The opening screen used to spend most of a phone viewport on branding before
+   the form was reachable. Four visits in five are mobile, so the hero, the
+   pillars and the "Who are you?" header were all cut down until the first
+   input sits within reach of the fold. */
 .setup-hero {
   text-align: center;
-  padding: 44px 0 34px;
+  padding: 22px 0 16px;
 }
 
 .setup-hero .lockup {
@@ -306,31 +310,31 @@ h4 {
 }
 
 .setup-hero .tagline {
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 .setup-head {
   text-align: center;
-  margin: 34px 0 30px;
+  margin: 22px 0 20px;
 }
 
 .setup-head h1 {
-  font-size: clamp(38px, 7.5vw, 60px);
+  font-size: clamp(30px, 6vw, 46px);
   line-height: 0.94;
   font-style: italic;
 }
 
 .setup-head p {
   color: var(--text-dim);
-  margin: 12px 0 0;
-  font-size: 15px;
+  margin: 8px 0 0;
+  font-size: 14px;
 }
 
 .rule {
   width: 46px;
   height: 3px;
   background: var(--lime);
-  margin: 18px auto 0;
+  margin: 12px auto 0;
   box-shadow: 0 0 18px var(--lime-glow);
 }
 
@@ -456,8 +460,14 @@ h4 {
 }
 
 .pillar {
-  padding: 18px 16px;
+  padding: 12px 12px;
   border-right: 1px solid var(--line-soft);
+  text-align: center;
+}
+
+.pillar svg {
+  width: 19px;
+  height: 19px;
 }
 
 .pillar:last-child {
@@ -465,17 +475,30 @@ h4 {
 }
 
 .pillar h4 {
-  font-size: 15px;
-  letter-spacing: 0.18em;
+  font-size: 12px;
+  letter-spacing: 0.16em;
   color: var(--text);
-  margin-bottom: 7px;
+  margin: 5px 0 3px;
 }
 
 .pillar p {
   margin: 0;
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--text-faint);
+}
+
+/* Two-up rather than four-up on a phone, so the words never shrink to nothing. */
+@media (max-width: 520px) {
+  .pillars {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pillar:nth-child(2) {
+    border-right: 0;
+  }
+  .pillar:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line-soft);
+  }
 }
 
 .pillar svg {
@@ -1412,4 +1435,138 @@ details.more[open] > summary::before {
   .rule-bar-right {
     display: none;
   }
+}
+
+
+/* ---------------------------------------------------------------------------
+   UNFINISHED BUSINESS
+   The carried ambition: named on the way in, answered on the way out.
+   --------------------------------------------------------------------------- */
+.ambition-banner {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 20px;
+  padding: 13px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--lime);
+  background: var(--lime-wash);
+  border-radius: 3px;
+}
+
+/* The game has no generic .label utility — these eyebrows need the brand's
+   wide-tracked uppercase treatment spelling out. */
+.ambition-banner .label,
+.ambition-result .label,
+.ambition-next .label {
+  font-family: var(--display);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  display: block;
+  width: 100%;
+}
+
+.ambition-result.is-met .label {
+  color: var(--lime);
+}
+
+.ambition-banner strong {
+  font-family: var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 17px;
+  color: var(--lime);
+}
+
+.ambition-missed {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.unfinished {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.ambition-result,
+.ambition-next {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--bg-panel);
+}
+
+.ambition-result p,
+.ambition-next p {
+  margin: 6px 0 0;
+  color: var(--text-dim);
+  font-size: 13.5px;
+}
+
+.ambition-result.is-met {
+  border-left: 3px solid var(--lime);
+  background: var(--lime-wash);
+}
+
+.ambition-result.is-met p {
+  color: var(--text);
+}
+
+.ambition-next {
+  border-left: 3px solid var(--line);
+}
+
+.ambition-next strong {
+  display: block;
+  margin-top: 9px;
+  font-family: var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 19px;
+  color: var(--lime);
+}
+
+/* ---------------------------------------------------------------------------
+   Name field with a suggestion button. The button is deliberately not a
+   pre-filled value: a name the player typed is one they are attached to.
+   --------------------------------------------------------------------------- */
+.input-with-action {
+  display: flex;
+  gap: 8px;
+}
+
+.input-with-action .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.dice {
+  flex: 0 0 auto;
+  width: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.dice svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+
+.dice:hover,
+.dice:focus-visible {
+  color: var(--lime);
+  border-color: var(--lime);
+  background: var(--lime-wash);
 }

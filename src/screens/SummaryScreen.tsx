@@ -13,6 +13,7 @@ import { AchievementBadge } from '../components/StepCard';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
 import { canShareImages, gameUrl, shareCareerCard, shareDataFor } from '../components/shareCard';
 import { trackShare } from '../game/telemetry';
+import { ambitionOutcome, nextAmbition } from '../game/unfinishedBusiness';
 
 export function SummaryScreen({ state, onRestart }: { state: GameState; onRestart: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -24,6 +25,9 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
   const title = careerTitle(state, totals);
   const verdict = careerVerdict(state, totals);
   const percentile = scorePercentile(score);
+  // What the last career asked of this one, and what this one leaves behind.
+  const carried = ambitionOutcome(state, totals);
+  const next = nextAmbition(state, totals);
 
   const f1Seasons = state.history.filter((h) => h.series === 'F1' && !h.reserveYear);
   const teamPath: string[] = [];
@@ -116,8 +120,34 @@ export function SummaryScreen({ state, onRestart }: { state: GameState; onRestar
               {sharing ? 'Preparing…' : canShare ? 'Share career' : 'Save career image'}
             </button>
             <button className="btn" onClick={onRestart}>
-              Play again
+              {next ? 'Take it on' : 'Play again'}
             </button>
+          </div>
+
+          {/* The career is over; this is the only thing on the page that points
+              forward. It sits directly under the buttons for that reason. */}
+          <div className="unfinished">
+            {carried && (
+              <div className={`ambition-result${carried.met ? ' is-met' : ''}`}>
+                <span className="label">{carried.met ? 'Ambition met' : 'Ambition missed'}</span>
+                <p>{carried.met ? carried.ambition.done : carried.ambition.missed}</p>
+              </div>
+            )}
+            {next ? (
+              <div className="ambition-next">
+                <span className="label">Unfinished business</span>
+                <p className="missed">{next.missed}</p>
+                <strong>{next.label}</strong>
+              </div>
+            ) : (
+              <div className="ambition-next">
+                <span className="label">Nothing left to prove</span>
+                <p className="missed">
+                  You have done everything this sport can ask of a driver. Start again and see
+                  whether it was you or the car.
+                </p>
+              </div>
+            )}
           </div>
           <div className="share-actions">
             <button

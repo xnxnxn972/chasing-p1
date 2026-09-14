@@ -6,3 +6,10 @@ node_modules/
 
 # This project builds to docs/, never dist/.
 dist/
+
+# The generated dashboard and its data. This repository is PUBLIC, and these
+# files pair player-entered driver names with the country their IP resolved to
+# — personal data that must not be published. The generator that builds them
+# (tools/dashboard.*) is committed; its output never is.
+dashboard.html
+dashboard.data.json

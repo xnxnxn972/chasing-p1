@@ -299,6 +299,8 @@ export interface CareerTotals {
 }
 
 export interface GameState {
+  /** The ambition carried in from the previous career, if any. */
+  ambitionId?: string;
   seed: string;
   year: number;
   cursor: Cursor;
