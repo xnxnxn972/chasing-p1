@@ -234,7 +234,13 @@ const dayKey = (iso) => iso.slice(0, 10);
  * a traffic source called "localhost".
  */
 function isDev(row) {
-  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(row.referrer || '');
+  const ref = row.referrer || '';
+  // The preview browser proxies a local dev server through a webcontainer, so
+  // those careers arrive with a stackblitz.com / webcontainer.io referrer
+  // rather than localhost — which slipped straight past the first version of
+  // this check and showed up in the published dashboard as real traffic.
+  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(ref) ||
+    /(^|\/\/)([a-z0-9-]+\.)*(webcontainer\.io|stackblitz\.com)/i.test(ref);
 }
 
 function build(rows) {
