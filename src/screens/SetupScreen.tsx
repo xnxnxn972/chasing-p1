@@ -173,7 +173,7 @@ export function SetupScreen({
       >
         <div className="field-row">
           <div className="field">
-            <label htmlFor="name">Name</label>
+            <label htmlFor="name">Driver name</label>
             <div className="input-with-action">
               <input
                 id="name"
@@ -201,7 +201,7 @@ export function SetupScreen({
             </div>
           </div>
           <div className="field">
-            <label htmlFor="number">Number</label>
+            <label htmlFor="number">Race number</label>
             <input
               id="number"
               className="input"
@@ -308,6 +308,12 @@ export function SetupScreen({
               You never see a number for how fast your car is — only what the paddock
               says about it. That is deliberate. The moment the car is a number, the
               game becomes a spreadsheet.
+            </p>
+            <p className="privacy-note">
+              The driver name and number you choose are part of the game and are not
+              a login. There is no account, no password and no payment. We count how
+              far careers get so the game can be improved, and we do not collect your
+              IP address, your location, or anything that identifies you.
             </p>
           </div>
         </div>

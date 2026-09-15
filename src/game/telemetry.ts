@@ -8,10 +8,11 @@
  *  3. The final update goes out with `keepalive` on page hide, which is the
  *     only thing that reliably survives a mobile browser being backgrounded.
  *
- * NOTE ON PERSONAL DATA: this records the visitor's IP address and coarse
- * location. That is personal data under GDPR/UK-GDPR. It is fine for a private
- * project; if this is ever shared publicly it needs a privacy note, and you may
- * prefer to drop `ip` and keep only `country`.
+ * NOTE ON PERSONAL DATA: it no longer records one. IP address, country and city
+ * were removed after Google Safe Browsing blocked the site as a deceptive page
+ * for harvesting personal information. What remains is what the player did in
+ * the game, the device class, and where the link came from — none of which
+ * identifies anybody.
  */
 
 // Same project as Flag Collection / Treasure Traitors. The anon key is public
@@ -276,20 +277,29 @@ function headers(extra: Record<string, string> = {}): HeadersInit {
   };
 }
 
-/** Look up IP and country once, best effort, never blocking. */
-async function lookupGeo(): Promise<void> {
-  try {
-    const res = await fetch('https://ipwho.is/', { cache: 'no-store' });
-    if (!res.ok) return;
-    const data = (await res.json()) as { ip?: string; country?: string; city?: string; success?: boolean };
-    if (data.success === false) return;
-    row.ip = data.ip ?? null;
-    row.country = data.country ?? null;
-    row.city = data.city ?? null;
-  } catch {
-    // No geo. The row still goes out without it.
-  }
-}
+/**
+ * REMOVED: the IP and location lookup.
+ *
+ * This used to call a third-party service (ipwho.is) on page load to record the
+ * visitor's IP address, country and city. Google Safe Browsing classified the
+ * site as a DECEPTIVE PAGE — "tricking users into revealing personal
+ * information" — and blocked it in Chrome entirely.
+ *
+ * That classification was wrong about the intent and right about the shape. To
+ * an automated classifier the site was: a domain registered two days earlier,
+ * serving a form asking for a name and a number, silently harvesting the
+ * visitor's IP from a third-party endpoint, and posting the result to another
+ * third-party API. That is the fingerprint of a phishing kit.
+ *
+ * It was also personal data under GDPR that this project had no privacy notice
+ * for, which had been flagged repeatedly and never resolved. Removing it fixes
+ * both problems at once.
+ *
+ * The ip / country / city columns stay in the table so historical rows keep
+ * their meaning; new rows simply leave them null. If the geography breakdown is
+ * ever wanted back, derive it server-side from the request rather than asking
+ * the browser to fetch its own IP.
+ */
 
 async function push(keepalive = false): Promise<void> {
   if (suppressed || !engaged) return;
@@ -336,9 +346,6 @@ export function initTelemetry(): void {
     suppressed = true;
     return;
   }
-
-  // Fetch the geo up front so it is ready, but do not write anything yet.
-  void lookupGeo();
 
   // `visibilitychange` is the only event that fires reliably when a mobile
   // browser is backgrounded or the tab is closed; `pagehide` covers the rest.

@@ -1671,3 +1671,12 @@ details.more[open] > summary::before {
   line-height: 1.6;
   max-width: 60ch;
 }
+
+/* Said plainly because a suspicious visitor and an automated classifier are
+   asking the same question: what is this form for, and what is being taken? */
+.privacy-note {
+  border-left: 2px solid var(--line);
+  padding-left: 12px;
+  color: var(--text-faint) !important;
+  font-size: 12.5px !important;
+}
