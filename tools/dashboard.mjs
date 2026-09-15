@@ -165,6 +165,23 @@ function viaOf(row) {
 // Aggregate
 // ---------------------------------------------------------------------------
 
+/**
+ * Country now arrives as a two-letter code, read server-side from the request
+ * rather than from a browser IP lookup. Rows logged before that change hold
+ * full names from the old lookup, so both shapes exist in the table and have to
+ * read as one list.
+ */
+const REGION_NAMES = new Intl.DisplayNames(['en'], { type: 'region' });
+function countryName(raw) {
+  if (!raw) return null;
+  if (!/^[A-Za-z]{2}$/.test(raw)) return raw; // already a full name
+  try {
+    return REGION_NAMES.of(raw.toUpperCase()) || raw.toUpperCase();
+  } catch {
+    return raw.toUpperCase();
+  }
+}
+
 const median = (xs) => {
   if (!xs.length) return 0;
   const s = [...xs].sort((a, b) => a - b);
@@ -271,7 +288,7 @@ function build(rows) {
       finished: post.filter((r) => r.finished).length,
       reachedF1: post.filter((r) => r.last_series === 'F1').length,
       shared: post.filter((r) => r.shared).length,
-      countries: new Set(post.map((r) => r.geo_country).filter(Boolean)).size,
+      countries: new Set(post.map((r) => countryName(r.geo_country)).filter(Boolean)).size,
       playSeconds: post.reduce((s, r) => s + (r.active_s || 0), 0),
       medianActive: median(post.map((r) => r.active_s || 0)),
       medianSeasons: median(post.filter((r) => r.finished).map((r) => r.seasons)),
@@ -288,10 +305,10 @@ function build(rows) {
     lastDayPartial,
     sources: rank(post, (r) => r._source),
     via: rank(post, (r) => r._via),
-    countries: rank(post, (r) => r.geo_country || null, { limit: 14 }),
+    countries: rank(post, (r) => countryName(r.geo_country), { limit: 14 }),
     // Uncapped, so the donut's "other" slice is every remaining country and
     // the ring sums to every visit that has a country at all.
-    allCountries: rank(post, (r) => r.geo_country || null),
+    allCountries: rank(post, (r) => countryName(r.geo_country)),
     countryCount: new Set(post.map((r) => r.geo_country).filter(Boolean)).size,
     devices: rank(post, (r) => `${r.device} / ${r.platform || '—'}`),
     verdicts: rank(post.filter((r) => r.finished), (r) => r.career_title || 'unnamed', { limit: 12 }),
