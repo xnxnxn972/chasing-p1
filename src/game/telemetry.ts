@@ -481,7 +481,25 @@ export function trackExtra(key: string, value: unknown): void {
 
 export function trackShare(result: string): void {
   row.shared = true;
+  // `shared` is set the moment the sheet OPENS, so on its own it cannot tell a
+  // completed share from a cancelled one. share_result is the outcome.
   row.share_result = result;
+  schedule();
+}
+
+/**
+ * The share prompt was shown for this career.
+ *
+ * Without this, whether the prompt helps can only be inferred by rebuilding its
+ * conditions from the log and comparing across BUILDS — which confounds it with
+ * everything else that shipped the same day. Recording it lets prompted and
+ * unprompted careers be compared inside a single build, where nothing else
+ * differs.
+ */
+export function trackPromptShown(score: number): void {
+  if (row.meta.prompt_shown) return;
+  row.meta.prompt_shown = true;
+  row.meta.prompt_score = score;
   schedule();
 }
 

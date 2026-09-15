@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { GameState } from '../game/types';
 import {
   careerScore,
@@ -12,7 +12,7 @@ import { CareerTable } from '../components/CareerTable';
 import { AchievementBadge } from '../components/StepCard';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
 import { canShareImages, gameUrl, shareCareerCard, shareDataFor } from '../components/shareCard';
-import { trackShare } from '../game/telemetry';
+import { trackPromptShown, trackShare } from '../game/telemetry';
 import { ambitionOutcome, nextAmbition } from '../game/unfinishedBusiness';
 import { challengeOutcome, shouldInviteChallenge } from '../game/challenge';
 
@@ -44,6 +44,12 @@ export function SummaryScreen({
   const challenge = challengeOutcome(state.challengeScore, score);
   // Whether this is the moment worth interrupting someone to share.
   const invite = shouldInviteChallenge({ score, careerIndex, previousBest });
+
+  // Record that the prompt was actually put in front of this player, so its
+  // effect can be measured against unprompted careers in the same build.
+  useEffect(() => {
+    if (invite) trackPromptShown(score);
+  }, [invite, score]);
 
   const f1Seasons = state.history.filter((h) => h.series === 'F1' && !h.reserveYear);
   const teamPath: string[] = [];

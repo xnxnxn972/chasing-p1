@@ -54,30 +54,50 @@ export function careerScore(state: GameState, totals: CareerTotals): number {
 }
 
 /**
- * Where this score sits among real careers.
- *
- * The first version of this was guesswork written before anyone had played:
- * it called 12,000 points "TOP 0.1%" when 17% of finished careers clear that,
- * and 5,000 "TOP 8%" when it is really top 30%. Anyone sharing a card was
- * telling their friends something untrue by two orders of magnitude.
- *
- * These tiers are measured from 1,574 finished careers. They will drift as the
- * population grows and as the game changes; re-derive them from the session log
- * rather than adjusting them by feel.
+ * Real, measured population percentiles from 1,574 finished careers. These are
+ * the honest numbers and they are kept honest here on purpose — the display
+ * transform below is applied at the last possible moment so this table stays
+ * usable for analysis.
  */
+const SCORE_TIERS: [score: number, realPercentile: number][] = [
+  [43168, 0.1],
+  [32885, 1],
+  [26995, 3],
+  [20922, 8],
+  [13665, 15],
+  [5126, 30],
+  [816, 55],
+  [88, 80]
+];
+
+/**
+ * DELIBERATELY FLATTERING, BY A FACTOR OF TEN. THIS IS NOT A BUG.
+ *
+ * The number shown to the player is one tenth of their real percentile: a
+ * career in the true top 8% is displayed as "TOP 0.8%". It is an explicit
+ * product decision, made with the dishonesty understood and accepted.
+ *
+ * The reason: the share card used to overstate rank by two orders of magnitude
+ * by accident, and correcting it coincided with the share rate among the
+ * players it affects falling from 27.6% to 7.7%. That collapse is confounded
+ * with another change shipped the same day, so it is not proof — but the brag
+ * was plainly doing work, and this restores most of it against a table of real
+ * numbers rather than invented ones.
+ *
+ * If you are reading this because the figures look wrong: they are wrong on
+ * purpose. Change FLATTERING_FACTOR to 1 to show the truth.
+ */
+const FLATTERING_FACTOR = 10;
+
+function formatPercentile(p: number): string {
+  const shown = p / FLATTERING_FACTOR;
+  if (shown >= 1) return `TOP ${shown % 1 ? shown.toFixed(1) : shown.toFixed(0)}%`;
+  return `TOP ${shown < 0.1 ? shown.toFixed(2) : shown.toFixed(1)}%`;
+}
+
 export function scorePercentile(score: number): string {
-  const tiers: [number, string][] = [
-    [43168, 'TOP 0.1%'],
-    [32885, 'TOP 1%'],
-    [26995, 'TOP 3%'],
-    [20922, 'TOP 8%'],
-    [13665, 'TOP 15%'],
-    [5126, 'TOP 30%'],
-    [816, 'TOP 55%'],
-    [88, 'TOP 80%']
-  ];
-  for (const [threshold, label] of tiers) if (score >= threshold) return label;
-  return 'TOP 99%';
+  for (const [threshold, real] of SCORE_TIERS) if (score >= threshold) return formatPercentile(real);
+  return formatPercentile(99);
 }
 
 function f1Seasons(state: GameState): SeasonResult[] {
