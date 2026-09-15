@@ -29,6 +29,7 @@ export function SummaryScreen({
   careerIndex?: number;
 }) {
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareNote, setShareNote] = useState<string | null>(null);
   const canShare = useMemo(() => canShareImages(), []);
@@ -152,6 +153,22 @@ export function SummaryScreen({
               }}
             >
               {sharing ? 'Preparing…' : canShare ? 'Share career' : 'Save career image'}
+            </button>
+            {/* Sits beside the primary action rather than below the ambition
+                panels, because 18 of the first 92 share presses ended in
+                `downloaded` — people who saved the picture and were given no
+                way at all to send the link with it. */}
+            <button
+              className="btn"
+              onClick={() => {
+                trackShare('link_copied');
+                navigator.clipboard?.writeText(gameUrl(score)).then(
+                  () => setLinkCopied(true),
+                  () => setLinkCopied(false)
+                );
+              }}
+            >
+              {linkCopied ? 'Link copied' : 'Copy link'}
             </button>
             <button className="btn" onClick={onRestart}>
               {next ? 'Take it on' : 'Play again'}
