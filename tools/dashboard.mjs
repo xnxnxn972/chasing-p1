@@ -137,6 +137,10 @@ function sourceOf(row) {
     return row.source;
   }
   if (!ref) return 'direct / app';
+  // Our own pages, old host and new. The github.io URL still 301s here and
+  // keeps appearing for as long as links shared on Reddit are opened.
+  if (/:\/\/([a-z0-9-]+\.)*playchasingp1\.com/i.test(ref)) return 'internal';
+  if (/:\/\/xnxnxn972\.github\.io/i.test(ref)) return 'internal';
   if (ref.startsWith('android-app://')) {
     if (/com\.reddit/.test(ref)) return 'reddit';
     if (/googlequicksearchbox|com\.google\.android\.gms/.test(ref)) return 'search';

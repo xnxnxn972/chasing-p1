@@ -318,12 +318,6 @@ h4 {
   margin: 22px 0 20px;
 }
 
-.setup-head h1 {
-  font-size: clamp(30px, 6vw, 46px);
-  line-height: 0.94;
-  font-style: italic;
-}
-
 .setup-head p {
   color: var(--text-dim);
   margin: 8px 0 0;
@@ -474,7 +468,7 @@ h4 {
   border-right: 0;
 }
 
-.pillar h4 {
+.pillar .pillar-name {
   font-size: 12px;
   letter-spacing: 0.16em;
   color: var(--text);
@@ -1609,4 +1603,71 @@ details.more[open] > summary::before {
   color: var(--text);
   font-size: 13.5px;
   line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------------------
+   Visually hidden, but present for screen readers and crawlers. Not a cloaking
+   trick: the text says exactly what the page is, and the visible design says
+   the same thing in a wordmark that neither can read.
+   --------------------------------------------------------------------------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The question the player is asked. Was the h1; now an h2, unchanged visually. */
+.setup-question {
+  font-size: clamp(30px, 6vw, 46px);
+  line-height: 0.94;
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------------------------
+   WHAT IS THIS?
+   Below the form on purpose — the first input has to stay reachable without
+   scrolling, and half of all abandonment is someone's first career. This is
+   for the person who arrives cold from a search result with no idea what they
+   have landed on.
+   --------------------------------------------------------------------------- */
+.about {
+  margin-top: 56px;
+  padding-top: 8px;
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  margin-top: 26px;
+}
+
+@media (max-width: 760px) {
+  .about-grid {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+}
+
+.about h3 {
+  font-family: var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 15px;
+  color: var(--lime);
+  margin: 0 0 10px;
+}
+
+.about p {
+  margin: 0 0 12px;
+  color: var(--text-dim);
+  font-size: 13.5px;
+  line-height: 1.6;
+  max-width: 60ch;
 }

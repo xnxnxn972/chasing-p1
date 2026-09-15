@@ -115,6 +115,10 @@ export function SetupScreen({
       <RuleBar left="Chasing P1" right="F1 Career Simulation" accent />
 
       <div className="setup-hero">
+        {/* First heading in the document. The visible identity is a wordmark,
+            which neither a screen reader nor a crawler can read, so the page's
+            actual title lives here. */}
+        <h1 className="sr-only">Chasing P1 — Formula 1 career simulation game</h1>
         <BrandLockup size="lg" />
         <div className="tagline">{TAGLINE}</div>
       </div>
@@ -141,14 +145,17 @@ export function SetupScreen({
         {PILLARS.map((pillar) => (
           <div className="pillar" key={pillar.name}>
             {pillar.icon}
-            <h4>{pillar.name}</h4>
+            <p className="pillar-name">{pillar.name}</p>
             <p>{pillar.copy}</p>
           </div>
         ))}
       </div>
 
       <header className="setup-head">
-        <h1>Who Are You?</h1>
+        {/* "Who Are You?" was the page's only h1, which told a search engine
+            nothing. It is the question the player is asked, not the title of
+            the page, so it is an h2 now. */}
+        <h2 className="setup-question">Who Are You?</h2>
         <p>Sixteen years old. One dream: Formula 1.</p>
         <div className="rule" />
       </header>
@@ -260,6 +267,51 @@ export function SetupScreen({
           Start your career
         </button>
       </form>
+
+      <section className="about">
+        <RuleBar left="What is this?" right="Chasing P1" />
+        <div className="about-grid">
+          <div>
+            <h3>A Formula 1 career, one decision at a time</h3>
+            <p>
+              You start at sixteen in Formula 4 with no money, no reputation and one
+              dream. Over the next twenty-five years you climb the junior ladder
+              through Formula 3 and Formula 2, sign for a real 2026 Formula 1 team,
+              and find out whether you end up World Champion, a journeyman nobody
+              remembers, or a driver who never got out of the juniors at all.
+            </p>
+            <p>
+              There is no driving. Every season asks you a small number of hard
+              questions and you live with the answers.
+            </p>
+          </div>
+          <div>
+            <h3>The questions are the game</h3>
+            <p>
+              Should your parents remortgage the house to fund one more season?
+              Do you blame the car in public, or protect the five hundred people who
+              built it? Your team-mate wants your telemetry — the three years of work
+              that explain why you are quick. Do you hand it over?
+            </p>
+            <p>
+              Eighty of these, drawn from the stage of your career you are actually
+              in, and no two careers ask the same set.
+            </p>
+          </div>
+          <div>
+            <h3>What it costs you</h3>
+            <p>
+              Nothing. It is free, there is no sign-up, and it runs in a browser on a
+              phone or a laptop. A full career takes about four minutes.
+            </p>
+            <p>
+              You never see a number for how fast your car is — only what the paddock
+              says about it. That is deliberate. The moment the car is a number, the
+              game becomes a spreadsheet.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <div className="page-foot">
         <RuleBar left="Chasing P1" right={TAGLINE} accent />
