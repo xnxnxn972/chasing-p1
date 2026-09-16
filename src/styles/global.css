@@ -1408,6 +1408,50 @@ details.more[open] > summary::before {
     order: 1;
   }
 
+  /* THE TOP OF THE SCREEN IS NOT FREE.
+     42% of arrivals never touch anything, and mobile bounces at 47% against
+     desktop's 20% — the loss is in the seconds before somebody engages, on the
+     screen below. So the opening spends as little of it as possible on saying
+     the name of the game, which it was saying three times: in the rule bar, in
+     the lockup, and again in the hidden h1 for screen readers.
+
+     Cut here: the hero's own padding (38px of nothing), the lockup down a size,
+     and the "Who Are You?" heading, whose job the DRIVER NAME label already
+     does. The line underneath it — "Sixteen years old. One dream: Formula 1."
+     — stays, because that one is the premise rather than the branding. */
+  .setup-hero {
+    padding: 6px 0 10px;
+  }
+
+  .setup-hero .lockup-lg .lockup-chasing {
+    font-size: 21px;
+  }
+
+  .setup-hero .lockup-lg .lockup-p1 {
+    font-size: 42px;
+  }
+
+  .setup-hero .p1-mark {
+    height: 54px;
+  }
+
+  .setup-hero .tagline {
+    margin-top: 7px;
+    font-size: 12px;
+  }
+
+  .setup-head {
+    margin: 12px 0 14px;
+  }
+
+  .setup-head .setup-question {
+    display: none;
+  }
+
+  .setup-head .rule {
+    display: none;
+  }
+
   /* THE FORM HAS TO BE REACHABLE.
      Stacked, the three style cards were 505px of an 819px form, and with the
      pillars above them the Start button sat 1,259px down an 852px screen —
