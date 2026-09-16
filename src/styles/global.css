@@ -159,6 +159,41 @@ h4 {
   font-size: 66px;
 }
 
+/* ONE WORDMARK, NOT THREE.
+   In the first screen the game was saying its own name three times: the rule
+   bar's "CHASING P1", the P1 monogram, and the lockup's "CHASING / P1" set as
+   type beside it. The mark alone carries the identity — the rule bar directly
+   above already gives the name in words, with the descriptor a stranger
+   actually needs ("F1 Career Simulation") next to it.
+
+   This is the OPENING screen only. The lockup keeps its wordmark everywhere
+   else it appears, where it is not sitting under a bar that just said it. */
+.setup-hero .lockup-bar,
+.setup-hero .lockup-words {
+  display: none;
+}
+
+.setup-hero .lockup {
+  justify-content: center;
+}
+
+.setup-hero .p1-mark {
+  height: 48px;
+}
+
+.setup-head {
+  margin: 14px 0 16px;
+}
+
+.setup-head .rule {
+  display: none;
+}
+
+/* Nationality and driving style, side by side wherever there is room. The page
+   is capped at 760px inside a 1366px window, so the width was already paid for
+   and simply unused. */
+
+
 .tagline {
   font-family: var(--display);
   font-size: 14px;
@@ -293,7 +328,42 @@ h4 {
 .setup {
   max-width: 760px;
   margin: 0 auto;
-  padding: 22px 20px 56px;
+  /* Every pixel above the Start button is paid for by the 42% who arrive and
+     never touch anything, so the top padding is the minimum that still reads
+     as a margin rather than a crop. */
+  padding: 12px 20px 56px;
+  /* The pillars are brand work on a screen whose job is to start a career, so
+     they move below the form at every width. They keep their place in the
+     DOCUMENT for a screen reader and a crawler; only the visual order moves. */
+  display: flex;
+  flex-direction: column;
+}
+
+.setup > .rule-bar {
+  order: 0;
+}
+
+.setup > .setup-hero {
+  order: 1;
+}
+
+.setup > .ambition-banner,
+.setup > .streak-note,
+.setup > .setup-head,
+.setup > form {
+  order: 2;
+}
+
+.setup > .pillars {
+  order: 3;
+}
+
+.setup > .about {
+  order: 4;
+}
+
+.setup > .page-foot {
+  order: 5;
 }
 
 /* The opening screen used to spend most of a phone viewport on branding before
@@ -302,7 +372,7 @@ h4 {
    input sits within reach of the fold. */
 .setup-hero {
   text-align: center;
-  padding: 22px 0 16px;
+  padding: 8px 0 10px;
 }
 
 .setup-hero .lockup {
@@ -369,7 +439,7 @@ h4 {
 
 .field-row {
   display: grid;
-  grid-template-columns: 1fr 128px;
+  grid-template-columns: minmax(0, 1fr) 128px minmax(0, 230px);
   gap: 14px;
 }
 
@@ -1423,21 +1493,6 @@ details.more[open] > summary::before {
     padding: 6px 0 10px;
   }
 
-  /* ONE WORDMARK, NOT THREE.
-     In the first hundred pixels the game was saying its own name three times:
-     the rule bar's "CHASING P1", the P1 monogram, and the lockup's "CHASING /
-     P1" set as type beside it. On a phone the mark alone carries the identity
-     — the rule bar directly above it already gives the name in words, and the
-     descriptor next to it ("F1 Career Simulation") is the part a stranger
-     actually needs. So the lockup keeps its mark and drops its wordmark. */
-  .setup-hero .lockup-bar,
-  .setup-hero .lockup-words {
-    display: none;
-  }
-
-  .setup-hero .lockup {
-    justify-content: center;
-  }
 
   .setup-hero .p1-mark {
     height: 54px;
@@ -1452,12 +1507,15 @@ details.more[open] > summary::before {
     margin: 12px 0 14px;
   }
 
-  .setup-head .setup-question {
-    display: none;
+  /* The question stays on a phone too — it is the line that tells a stranger
+     what the form is for. Only the decorative rule under it goes. */
+  /* Back to a single column: on a phone there is no width to share. */
+  .field-row {
+    grid-template-columns: minmax(0, 1fr) 100px;
   }
 
-  .setup-head .rule {
-    display: none;
+  .field-row > .field:last-child {
+    grid-column: 1 / -1;
   }
 
   /* THE FORM HAS TO BE REACHABLE.
@@ -1500,37 +1558,8 @@ details.more[open] > summary::before {
      flex parent, so the setup column becomes one here and everything that is
      not reordered keeps its default order of 0 — which is why the hero, the
      banners and the form all carry an explicit order too. */
-  .setup {
-    display: flex;
-    flex-direction: column;
-  }
 
-  .setup > .rule-bar {
-    order: 0;
-  }
 
-  .setup > .setup-hero {
-    order: 1;
-  }
-
-  .setup > .ambition-banner,
-  .setup > .streak-note,
-  .setup > .setup-head,
-  .setup > form {
-    order: 2;
-  }
-
-  .setup > .pillars {
-    order: 3;
-  }
-
-  .setup > .about {
-    order: 4;
-  }
-
-  .setup > .page-foot {
-    order: 5;
-  }
 
   .pillars {
     grid-template-columns: repeat(2, 1fr);
@@ -1767,7 +1796,7 @@ details.more[open] > summary::before {
 
 /* The question the player is asked. Was the h1; now an h2, unchanged visually. */
 .setup-question {
-  font-size: clamp(30px, 6vw, 46px);
+  font-size: clamp(26px, 4.4vw, 34px);
   line-height: 0.94;
   font-style: italic;
 }

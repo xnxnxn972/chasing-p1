@@ -167,7 +167,7 @@ export function SetupScreen({
         {/* "Who Are You?" was the page's only h1, which told a search engine
             nothing. It is the question the player is asked, not the title of
             the page, so it is an h2 now. */}
-        <h2 className="setup-question">Who Are You?</h2>
+        <h2 className="setup-question">Who do you want to be?</h2>
         <p>Sixteen years old. One dream: Formula 1.</p>
         <div className="rule" />
       </header>
@@ -249,29 +249,29 @@ export function SetupScreen({
               onChange={(e) => setNumber(Number(e.target.value))}
             />
           </div>
+          <div className="field">
+            <label htmlFor="nat">Nationality</label>
+            <select
+              id="nat"
+              className="select"
+              value={nationality}
+              onChange={(e) => setNationality(e.target.value)}
+            >
+              {[...NATIONALITIES]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((n) => (
+                  <option key={n.code} value={n.code}>
+                    {n.flag} {n.name}
+                  </option>
+                ))}
+            </select>
+          </div>
         </div>
         {/* #1 is reserved: the reigning World Champion earns the right to it. */}
         <p className="hint" style={{ marginTop: -14, marginBottom: 22 }}>
           2&ndash;99. Number 1 belongs to the reigning World Champion &mdash; win it and you can run it.
         </p>
 
-        <div className="field">
-          <label htmlFor="nat">Nationality</label>
-          <select
-            id="nat"
-            className="select"
-            value={nationality}
-            onChange={(e) => setNationality(e.target.value)}
-          >
-            {[...NATIONALITIES]
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((n) => (
-                <option key={n.code} value={n.code}>
-                  {n.flag} {n.name}
-                </option>
-              ))}
-          </select>
-        </div>
 
         <div className="field">
           <label>Driving style</label>
