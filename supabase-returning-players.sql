@@ -26,6 +26,12 @@
 --                    counts days, not shared puzzles.
 --
 --  All of these live in meta, so the table is unchanged. Safe to run repeatedly.
+--
+--  RUN THIS FILE ON ITS OWN. The Supabase SQL editor executes a pasted script
+--  as a single transaction, so an error anywhere rolls back everything above
+--  it — including this function — and leaves no trace of what failed. The
+--  reporting queries that used to live at the bottom of this file are now in
+--  supabase-returning-report.sql for exactly that reason.
 -- ============================================================================
 
 drop function if exists public.cp_sessions_admin(text, int, boolean, timestamptz);
@@ -134,24 +140,3 @@ end;
 $$;
 
 grant execute on function public.cp_sessions_admin(text, int, boolean, timestamptz) to anon, authenticated;
-
--- ---- the number that has never existed before -------------------------------
--- Empty until the deploy has been live for a day: a return cannot be observed
--- until a second day exists to return on. Rows where storage failed are left
--- out entirely rather than counted as one-visit players.
-select
-  count(*) filter (where visits = 1)                       as one_visit_only,
-  count(*) filter (where visits > 1)                       as came_back,
-  round(100.0 * count(*) filter (where visits > 1)
-        / nullif(count(*), 0), 1)                          as return_rate_pct,
-  count(*) filter (where days_seen > 1)                    as returned_another_day
-from (
-  select
-    meta->>'player_id'                        as pid,
-    max((meta->>'player_visits')::int)        as visits,
-    count(distinct created_at::date)          as days_seen
-  from public.cp_sessions
-  where meta ? 'player_id'
-    and coalesce((meta->>'storage')::boolean, false)
-  group by 1
-) p;
