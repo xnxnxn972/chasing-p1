@@ -439,6 +439,11 @@ h4 {
   color: var(--text-faint);
 }
 
+/* Only ever shown on a phone, where the cards are collapsed to their names. */
+.style-pros {
+  display: none;
+}
+
 .style-card li.con {
   color: var(--text-faint);
 }
@@ -1403,8 +1408,76 @@ details.more[open] > summary::before {
     order: 1;
   }
 
+  /* THE FORM HAS TO BE REACHABLE.
+     Stacked, the three style cards were 505px of an 819px form, and with the
+     pillars above them the Start button sat 1,259px down an 852px screen —
+     a screen and a half of scrolling to find the button that starts the game.
+     Three across, names only, with the reasons on one line underneath. */
   .styles {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .style-card {
+    padding: 11px 8px;
+    text-align: center;
+  }
+
+  .style-card h3 {
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    margin-bottom: 0;
+  }
+
+  .style-card ul {
+    display: none;
+  }
+
+  .style-pros {
+    display: block;
+    margin: 9px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+  }
+
+  /* The pillars are brand work on a screen whose job is to start a career.
+     They keep their place in the DOCUMENT for a screen reader and a crawler,
+     and move below the form for everybody looking at a phone. `order` needs a
+     flex parent, so the setup column becomes one here and everything that is
+     not reordered keeps its default order of 0 — which is why the hero, the
+     banners and the form all carry an explicit order too. */
+  .setup {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .setup > .rule-bar {
+    order: 0;
+  }
+
+  .setup > .setup-hero {
+    order: 1;
+  }
+
+  .setup > .ambition-banner,
+  .setup > .streak-note,
+  .setup > .setup-head,
+  .setup > form {
+    order: 2;
+  }
+
+  .setup > .pillars {
+    order: 3;
+  }
+
+  .setup > .about {
+    order: 4;
+  }
+
+  .setup > .page-foot {
+    order: 5;
   }
 
   .pillars {

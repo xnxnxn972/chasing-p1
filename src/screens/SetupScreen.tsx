@@ -294,6 +294,16 @@ export function SetupScreen({
               </button>
             ))}
           </div>
+          {/* On a phone the three cards collapse to their names, which would
+              drop the reason to choose one. This restores it for the selected
+              style in a single line. Hidden on desktop, where the cards
+              already say it. */}
+          <p className="style-pros">
+            {(() => {
+              const c = STYLE_CARDS.find((x) => x.id === style);
+              return c ? [...c.pros.map((t) => `+ ${t}`), ...c.cons.map((t) => `− ${t}`)].join('   ') : '';
+            })()}
+          </p>
         </div>
 
         <button type="submit" className="btn btn-primary btn-block" disabled={!valid || started}>

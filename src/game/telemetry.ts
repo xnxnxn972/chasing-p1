@@ -25,6 +25,7 @@ const SUPABASE_ANON_KEY =
 // no SELECT policy (visitors must not read the log), and an UPDATE cannot find
 // a row it cannot see — so PATCHing it silently matched nothing.
 const RPC = `${SUPABASE_URL}/rest/v1/rpc/cp_log_session`;
+const LOAD_RPC = `${SUPABASE_URL}/rest/v1/rpc/cp_log_load`;
 
 export interface SessionRow {
   /** Unique per CAREER — one row per career played. */
@@ -336,6 +337,49 @@ function schedule(keepalive = false): void {
 
 let installed = false;
 
+/**
+ * COUNT THE ARRIVAL, SEPARATELY FROM THE CAREER.
+ *
+ * cp_sessions writes nothing until the visitor does something, which is what
+ * keeps crawlers out of the careers data and must not change. The cost was
+ * that somebody who opened the front page and left was invisible, so the
+ * opening screen could not be measured at all: "94% of visitors start a
+ * career" really meant "94% of people who already interacted went on to start
+ * one", which cannot tell us whether the front page is losing anybody.
+ *
+ * This writes one small row to a DIFFERENT table, joined later on visit_id:
+ * a load with no matching session is somebody who arrived and left.
+ *
+ * It carries no name, no score and nothing typed. Crawler rows land here on
+ * purpose and are filtered when the data is read — dropping them at write
+ * time is exactly how the blind spot was created in the first place.
+ *
+ * Fired a second after load rather than immediately, so a visitor who closes
+ * the tab instantly costs nothing, and so it never competes with rendering.
+ */
+function logLoad(): void {
+  const send = () => {
+    try {
+      const body = JSON.stringify({
+        p: {
+          visit_id: visitId,
+          referrer: row.referrer,
+          device: row.device,
+          platform: row.platform,
+          screen: row.screen,
+          app_version: row.app_version,
+          webdriver: typeof navigator !== 'undefined' && navigator.webdriver === true,
+          meta: { ...LANDING_TAGS }
+        }
+      });
+      void fetch(LOAD_RPC, { method: 'POST', headers: headers(), body, keepalive: true }).catch(() => {});
+    } catch {
+      /* a failed count is not worth failing a page load over */
+    }
+  };
+  setTimeout(send, 1000);
+}
+
 export function initTelemetry(): void {
   if (installed || typeof window === 'undefined') return;
   installed = true;
@@ -346,6 +390,8 @@ export function initTelemetry(): void {
     suppressed = true;
     return;
   }
+
+  logLoad();
 
   // `visibilitychange` is the only event that fires reliably when a mobile
   // browser is backgrounded or the tab is closed; `pagehide` covers the rest.
