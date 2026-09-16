@@ -112,6 +112,41 @@ function detectDevice(): { device: string; platform: string } {
 }
 
 /**
+ * A PERMANENT OPT-OUT FOR OUR OWN TRAFFIC.
+ *
+ * WHY: half of the first day of page-load data was mine. Verifying a deploy
+ * means loading the production URL over and over, and those loads arrive with
+ * no referrer — so the referrer-based dev filter that keeps the careers
+ * dashboard clean could not see them, and they counted as visitors who
+ * arrived and bounced. 29 of 63 loads, every one a false bounce.
+ *
+ * Heuristics were the wrong answer. navigator.webdriver is false in the
+ * preview browser, the user agent is ordinary Chrome, and filtering by country
+ * would throw away real players from the same place. So it is explicit and
+ * sticky, the way analytics opt-outs normally are:
+ *
+ *     playchasingp1.com/?dev=1   stop logging this browser, permanently
+ *     playchasingp1.com/?dev=0   start again
+ *
+ * Set once per browser used for testing and nothing from it is ever recorded
+ * again — no loads, no careers — because suppression happens before the first
+ * write rather than being filtered out afterwards.
+ */
+const DEV_KEY = 'cp1.dev';
+
+function isOptedOut(): boolean {
+  try {
+    const flag = new URLSearchParams(location.search).get('dev');
+    if (flag === '1') localStorage.setItem(DEV_KEY, '1');
+    else if (flag === '0') localStorage.removeItem(DEV_KEY);
+    return localStorage.getItem(DEV_KEY) === '1';
+  } catch {
+    // No storage, no opt-out. A visitor who blocks site data is a real visitor.
+    return false;
+  }
+}
+
+/**
  * Is this a browser being driven by software rather than a person?
  *
  * Nine rows in ten were link scanners and crawlers hitting the Pages URL — one
@@ -123,6 +158,7 @@ function detectDevice(): { device: string; platform: string } {
  */
 function looksAutomated(): boolean {
   if (typeof navigator === 'undefined') return true;
+  if (isOptedOut()) return true;
   try {
     if (new URLSearchParams(location.search).get('tel') === 'force') return false;
   } catch {
