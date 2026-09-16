@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "balance": "esbuild tools/simtest.ts --bundle --platform=node --format=esm --outfile=.tmp/simtest.mjs --log-level=warning && node .tmp/simtest.mjs"
+    "balance": "esbuild tools/simtest.ts --bundle --platform=node --format=esm --outfile=.tmp/simtest.mjs --log-level=warning && node .tmp/simtest.mjs",
+    "dashboard": "node tools/dashboard.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

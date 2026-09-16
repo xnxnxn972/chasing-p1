@@ -9,25 +9,42 @@ import { initTelemetry, trackCareerEnd, trackCareerStart, trackExtra, trackProgr
 import { computeTotals, careerScore, careerTitle } from './game/careerVerdict';
 import { ambitionOutcome, nextAmbition } from './game/unfinishedBusiness';
 import { incomingChallenge } from './game/challenge';
+import { countVisit, player, storageWorks, updatePlayer } from './game/playerStore';
+import { streakAfter, today } from './game/streak';
 
 export function App() {
   const [state, setState] = useState<GameState | null>(null);
   const [setup, setSetup] = useState<CareerSetup | null>(null);
-  // The thing the last career failed to do, carried into the next one. Held in
-  // memory rather than storage on purpose: it is a hook for the player who is
-  // still here, not a commitment we ask them to honour a week later.
-  const [ambitionId, setAmbitionId] = useState<string | undefined>(undefined);
+  // The thing the last career failed to do, carried into the next one. It now
+  // survives the tab closing: an ambition that evaporates when somebody shuts
+  // their laptop is a hook for the player who was never going to leave anyway,
+  // which is the opposite of what it was built for.
+  const [ambitionId, setAmbitionId] = useState<string | undefined>(() => player().ambitionId);
   // Read once, from the URL this visit landed on. It survives "play again"
   // within the visit, so a challenged player keeps the target until they beat it.
   const [challengeScore] = useState<number | undefined>(() => incomingChallenge() ?? undefined);
-  // The best score this visit has managed, which is what makes a career a
-  // personal best and decides whether the share prompt is worth showing.
-  const [bestScore, setBestScore] = useState(0);
-  // Which career of this visit is being played, so "your best yet" is only
-  // ever said when there is a previous career to be better than.
-  const [careerNumber, setCareerNumber] = useState(0);
+  // The best score this browser has ever managed, which is what makes a career
+  // a personal best and decides whether the share prompt is worth showing.
+  // All-time rather than per-visit, so returning to beat your own score works.
+  const [bestScore, setBestScore] = useState(() => player().bestScore);
+  // How many careers this browser has played, so "your best yet" is only ever
+  // said when there is a previous career to be better than.
+  const [careerNumber, setCareerNumber] = useState(() => player().careers);
 
-  useEffect(() => initTelemetry(), []);
+  useEffect(() => {
+    const stop = initTelemetry();
+    const p = countVisit();
+    // The log can now tell a returning player from a new one, which is the
+    // whole point of the store. `storage` records the cases where it cannot —
+    // private windows and blocked site data — so those are not silently
+    // counted as first-ever visits and left to drag the return rate down.
+    trackExtra('player_id', p.id);
+    trackExtra('player_visits', p.visits);
+    trackExtra('player_careers', p.careers);
+    trackExtra('first_seen', p.firstSeen);
+    trackExtra('storage', storageWorks());
+    return stop;
+  }, []);
 
   // Log the finished career once, when it finishes.
   const finished = state?.finished ?? false;
@@ -45,7 +62,9 @@ export function App() {
     // Whether the carried ambition was actually delivered is the one number
     // that says if this feature works at all.
     if (outcome) trackExtra('ambition', outcome.ambition.id + (outcome.met ? ' ✓' : ' ✗'));
-    setAmbitionId(nextAmbition(state, totals)?.id);
+    const carried = nextAmbition(state, totals)?.id;
+    setAmbitionId(carried);
+    updatePlayer({ ambitionId: carried });
     // Only when the career transitions to finished.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
@@ -59,6 +78,21 @@ export function App() {
           trackCareerStart(next);
           setSetup(next);
           setCareerNumber((n) => n + 1);
+          // A racing day is counted when a career is STARTED. Finishing is
+          // not required: somebody who turned up and played counts as having
+          // turned up, and a streak that only rewards completion would punish
+          // the player who came back for ten minutes.
+          const p = player();
+          const day = today();
+          const next_ = updatePlayer({
+            careers: p.careers + 1,
+            lastPlayed: day,
+            streak: streakAfter(p.lastPlayed, p.streak, day)
+          });
+          // Logged here rather than on mount: the streak only advances when a
+          // career actually starts, so reading it at page load would record
+          // yesterday's number against today's career.
+          trackExtra('player_streak', next_.streak);
           setState(createCareer({ ...next, challengeScore }));
         }}
       />
@@ -70,7 +104,11 @@ export function App() {
     // finished: the summary screen is still comparing against the previous best
     // to decide whether this was a personal best, and updating it any earlier
     // makes that comparison false the instant it is rendered.
-    if (state) setBestScore((b) => Math.max(b, careerScore(state, computeTotals(state))));
+    if (state) {
+      const score = careerScore(state, computeTotals(state));
+      setBestScore((b) => Math.max(b, score));
+      updatePlayer({ bestScore: Math.max(player().bestScore, score) });
+    }
     setState(null);
     setSetup(null);
   };

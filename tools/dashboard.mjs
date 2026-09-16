@@ -17,7 +17,7 @@
  * The token is read from the environment and never written to disk.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -29,9 +29,38 @@ const ANON_KEY =
 const POST_AT = Date.parse('2026-09-13T08:40:00Z');
 const PAGE = 1000; // PostgREST caps a single response at 1000 rows.
 
-const token = process.env.CP1_TOKEN;
+/**
+ * The admin token, from the environment or from a file beside the repo.
+ *
+ * The file exists so that refreshing the dashboard does not depend on somebody
+ * remembering a secret that lives only in the Supabase table. It is listed in
+ * .gitignore: THIS REPOSITORY IS PUBLIC, and this token reads the entire
+ * session log including player-entered names. If you ever move this file,
+ * move the .gitignore entry with it.
+ *
+ * The environment wins, so a one-off run with a different token needs no edit.
+ */
+const TOKEN_FILE = join(dirname(fileURLToPath(import.meta.url)), '..', '.cp1-token');
+
+function readToken() {
+  const fromEnv = process.env.CP1_TOKEN?.trim();
+  if (fromEnv) return fromEnv;
+  if (existsSync(TOKEN_FILE)) {
+    // Tolerate the ways a pasted secret arrives: a UTF-8 BOM from a Windows
+    // editor, surrounding quotes, and the angle brackets people keep from a
+    // <placeholder>. All of these produce an opaque "unauthorized" otherwise.
+    const fromFile = readFileSync(TOKEN_FILE, 'utf8').replace(/^﻿/, '').trim().replace(/^[<"']+|[>"']+$/g, '');
+    if (fromFile) return fromFile;
+  }
+  return null;
+}
+
+const token = readToken();
 if (!token) {
-  console.error('Set CP1_TOKEN to the admin token (see supabase-admin-rpc.sql).');
+  console.error('No admin token.');
+  console.error('  Get it:   select token from public.cp_admin where id = 1;');
+  console.error('  Save it:  write it to .cp1-token in the repo root (gitignored)');
+  console.error('  Or pass:  CP1_TOKEN=<token> node tools/dashboard.mjs');
   process.exit(1);
 }
 

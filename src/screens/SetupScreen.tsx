@@ -1,7 +1,9 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { DrivingStyle } from '../game/types';
 import type { CareerSetup } from '../game/careerEngine';
 import { NATIONALITIES } from '../data/nationalities';
+import { ordinal, streakIsAlive, today } from '../game/streak';
+import { player } from '../game/playerStore';
 import { makeSeed } from '../game/random';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
 import { ambitionById } from '../game/unfinishedBusiness';
@@ -105,6 +107,12 @@ export function SetupScreen({
   const starting = useRef(false);
   const [started, setStarted] = useState(false);
 
+  // THE STREAK. Read once on mount: the record cannot change while this screen
+  // is up, and re-reading it on every keystroke would be pointless work.
+  const me = useMemo(() => player(), []);
+  const playedToday = me.lastPlayed === today();
+  const streak = streakIsAlive(me.lastPlayed) ? me.streak : 0;
+
   const ambition = ambitionById(ambitionId);
 
   const trimmed = name.trim();
@@ -160,6 +168,28 @@ export function SetupScreen({
         <div className="rule" />
       </header>
 
+      {/* THE STREAK. One line, and only when there is something to say. It is
+          a nudge, not a scoreboard: the game cannot send anybody a
+          notification, so a count that breaks tomorrow is the only deadline
+          available to a player who has already left. */}
+      {streak > 0 && (
+        <p className="streak-note">
+          {playedToday ? (
+            <>
+              <strong>{ordinal(streak)} racing day in a row.</strong> Come back tomorrow to keep it
+              going.
+            </>
+          ) : (
+            <>
+              <strong>
+                {streak === 1 ? 'You raced yesterday.' : `${streak} racing days in a row.`}
+              </strong>{' '}
+              Start a career today and it becomes {streak + 1}.
+            </>
+          )}
+        </p>
+      )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -168,6 +198,9 @@ export function SetupScreen({
           setStarted(true);
           // The seed is generated here and never shown: the engine needs one for
           // determinism, the player does not need to think about it.
+          // Every career gets its own seed, including two started on the same
+          // day by the same player. The seed is never shown: the engine needs
+          // one for determinism, the player does not need to think about it.
           onStart({ name: trimmed, number, nationality, style, seed: makeSeed(), ambitionId });
         }}
       >

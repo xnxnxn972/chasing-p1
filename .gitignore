@@ -13,3 +13,7 @@ dist/
 # (tools/dashboard.*) is committed; its output never is.
 dashboard.html
 dashboard.data.json
+
+# The Supabase admin token. Reads the whole session log, including the names
+# players typed in. This repository is PUBLIC — it must never be committed.
+.cp1-token

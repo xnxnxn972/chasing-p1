@@ -1680,3 +1680,28 @@ details.more[open] > summary::before {
   color: var(--text-faint) !important;
   font-size: 12.5px !important;
 }
+
+/* ---------------------------------------------------------------------------
+   THE STREAK
+   One line above the form. Deliberately quieter than the ambition banner: that
+   one names something the player failed to do and owes themselves, this one is
+   only a count. If it ever shouts, it has become nagging.
+   --------------------------------------------------------------------------- */
+.streak-note {
+  margin: 0 0 20px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--lime);
+  background: var(--lime-wash);
+  border-radius: 0 3px 3px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.streak-note strong {
+  font-family: var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 14px;
+  color: var(--lime);
+}

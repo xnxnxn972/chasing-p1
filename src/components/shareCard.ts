@@ -306,7 +306,18 @@ export async function renderShareCard(data: ShareData): Promise<Blob> {
 
   ctx.font = `600 21px ${DISPLAY}`;
   ctx.fillStyle = FAINT;
-  tracked(ctx, 'ONE CAREER. ONE GOAL.', W / 2, H - 62, 7);
+  tracked(ctx, 'ONE CAREER. ONE GOAL.', W / 2, H - 96, 7);
+
+  // THE ADDRESS. A third of all sharing is the picture alone — saved to the
+  // camera roll, or pasted into a chat as an image — and that route carries no
+  // link at all. Without this line those cards are a dead end: somebody sees a
+  // career they want to beat and has no way to reach the game.
+  //
+  // Written to be TYPED, not clicked: no scheme, no www, no path, no query.
+  // Derived from the host so it cannot go stale if the game moves again.
+  ctx.font = `700 30px ${DISPLAY}`;
+  ctx.fillStyle = LIME;
+  tracked(ctx, shareHost(), W / 2, H - 52, 6);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('render failed'))), 'image/png');
@@ -332,19 +343,59 @@ export function gameUrl(beatScore?: number): string {
   return `${base}?s=share${beat}`;
 }
 
+/**
+ * The bare hostname, upper-cased for the card: "PLAYCHASINGP1.COM".
+ *
+ * `www.` is dropped because nobody needs to type it, and a port is kept only
+ * when there is one, so a local build still shows something truthful.
+ */
+function shareHost(): string {
+  if (typeof location === 'undefined') return 'PLAYCHASINGP1.COM';
+  return location.host.replace(/^www\./, '').toUpperCase();
+}
+
 export type ShareResult = 'shared' | 'downloaded' | 'cancelled' | 'failed';
+
+/**
+ * What happened during a share, beyond the outcome.
+ *
+ * WHY THIS EXISTS: mobile is 72% of players and shares at 6.4% against
+ * desktop's 10.3% — backwards, because mobile is the platform with a native
+ * share sheet. Mobile also cancels: 16 of 90 mobile share actions, against
+ * zero on desktop. `share_result` alone cannot say why, because the two
+ * explanations look identical in it:
+ *
+ *   * the card takes too long to build, so the sheet arrives after the player
+ *     has stopped expecting it -> `renderMs` is large
+ *   * the sheet arrives fine and they change their mind or cannot find a
+ *     target they want -> `renderMs` small, `sheetMs` tells which
+ *
+ * A fast cancel is a mis-tap or a sheet that felt wrong. A slow one is a
+ * decision. They need different fixes, so they are measured apart.
+ */
+export interface ShareTrace {
+  result: ShareResult;
+  /** Which route the platform actually took, not which one it advertised. */
+  path: 'native' | 'download';
+  /** Milliseconds spent building the PNG before anything was shown. */
+  renderMs: number;
+  /** Milliseconds the native sheet was open. Zero when there was no sheet. */
+  sheetMs: number;
+}
 
 /**
  * Hand the card to the OS share sheet where that exists (Chrome and Edge on
  * Windows and Android, Safari on iOS), and fall back to saving the PNG.
  */
-export async function shareCareerCard(data: ShareData): Promise<ShareResult> {
+export async function shareCareerCard(data: ShareData): Promise<ShareTrace> {
+  const t0 = now();
   let blob: Blob;
   try {
     blob = await renderShareCard(data);
   } catch {
-    return 'failed';
+    return { result: 'failed', path: 'download', renderMs: now() - t0, sheetMs: 0 };
   }
+  const renderMs = Math.round(now() - t0);
 
   const safeName = data.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'driver';
   const filename = `chasing-p1-${safeName.toLowerCase()}.png`;
@@ -354,6 +405,7 @@ export async function shareCareerCard(data: ShareData): Promise<ShareResult> {
   type ShareData_ = { files?: File[]; title?: string; text?: string };
 
   if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
+    const opened = now();
     try {
       // The link goes inside `text` rather than in `url`: when a file is
       // attached most targets keep the text and drop everything else, and
@@ -368,10 +420,12 @@ export async function shareCareerCard(data: ShareData): Promise<ShareResult> {
 
 Play Chasing P1: ${gameUrl(data.score)}`
       });
-      return 'shared';
+      return { result: 'shared', path: 'native', renderMs, sheetMs: Math.round(now() - opened) };
     } catch (err) {
       // The user closing the sheet is a normal outcome, not an error.
-      if ((err as Error)?.name === 'AbortError') return 'cancelled';
+      if ((err as Error)?.name === 'AbortError') {
+        return { result: 'cancelled', path: 'native', renderMs, sheetMs: Math.round(now() - opened) };
+      }
       // Anything else: fall through and save the file instead.
     }
   }
@@ -385,10 +439,15 @@ Play Chasing P1: ${gameUrl(data.score)}`
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    return 'downloaded';
+    return { result: 'downloaded', path: 'download', renderMs, sheetMs: 0 };
   } catch {
-    return 'failed';
+    return { result: 'failed', path: 'download', renderMs, sheetMs: 0 };
   }
+}
+
+/** Monotonic where available, so a clock change cannot produce a negative. */
+function now(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
 /** True when the platform can take an image into a native share sheet. */

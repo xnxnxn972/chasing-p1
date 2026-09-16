@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GameState } from '../game/types';
 import {
   careerScore,
@@ -12,7 +12,7 @@ import { CareerTable } from '../components/CareerTable';
 import { AchievementBadge } from '../components/StepCard';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
 import { canShareImages, gameUrl, shareCareerCard, shareDataFor } from '../components/shareCard';
-import { trackPromptShown, trackShare } from '../game/telemetry';
+import { trackExtra, trackPromptShown, trackShare } from '../game/telemetry';
 import { ambitionOutcome, nextAmbition } from '../game/unfinishedBusiness';
 import { challengeOutcome, shouldInviteChallenge } from '../game/challenge';
 
@@ -33,6 +33,8 @@ export function SummaryScreen({
   const [sharing, setSharing] = useState(false);
   const [shareNote, setShareNote] = useState<string | null>(null);
   const canShare = useMemo(() => canShareImages(), []);
+  // Counts presses within one career, so a cancel-then-retry is visible.
+  const shareAttempts = useRef(0);
   const totals = useMemo(() => computeTotals(state), [state]);
   const score = careerScore(state, totals);
   const title = careerTitle(state, totals);
@@ -145,11 +147,20 @@ export function SummaryScreen({
               onClick={async () => {
                 setSharing(true);
                 setShareNote(null);
-                const result = await shareCareerCard(shareDataFor(state));
-                trackShare(result);
+                shareAttempts.current += 1;
+                const trace = await shareCareerCard(shareDataFor(state));
+                trackShare(trace.result);
+                // Why a share went the way it did. See ShareTrace for what
+                // each field separates; `attempts` catches the player who
+                // cancels and immediately tries again, which reads as a
+                // failed sheet rather than a changed mind.
+                trackExtra('share_path', trace.path);
+                trackExtra('share_render_ms', trace.renderMs);
+                trackExtra('share_sheet_ms', trace.sheetMs);
+                trackExtra('share_attempts', shareAttempts.current);
                 setSharing(false);
-                if (result === 'downloaded') setShareNote('Image saved');
-                else if (result === 'failed') setShareNote('Could not create the image');
+                if (trace.result === 'downloaded') setShareNote('Image saved');
+                else if (trace.result === 'failed') setShareNote('Could not create the image');
               }}
             >
               {sharing ? 'Preparing…' : canShare ? 'Share career' : 'Save career image'}
