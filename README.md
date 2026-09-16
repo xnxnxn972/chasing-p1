@@ -1,13 +1,17 @@
-# CHASING P1 — MVP (v0.1)
+# CHASING P1
 
 > One career. One goal.
+
+### ▶  **[Play it at playchasingp1.com](https://playchasingp1.com)**
+
+[![Chasing P1](public/og.png)](https://playchasingp1.com)
 
 A browser-based, choice-driven Formula 1 career simulation. You start at 16 as an
 unknown junior and try to climb F4 → F3 → F2 → Formula 1 → World Champion. You
 never drive a race: you make decisions, the season is simulated, and the career
 story that comes out the other side is the product.
 
-A full career takes about five minutes.
+A full career takes about five minutes. No account, no install, no app.
 
 ## Running it
 
