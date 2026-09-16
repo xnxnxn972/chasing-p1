@@ -8,10 +8,11 @@ Refresh the Chasing P1 analytics dashboard and republish it.
 
 ## Steps
 
-1. Build it. From the repo root:
+1. Build it. The repo lives at `C:/Users/yaniv/OneDrive/Projects/chasing-p1`,
+   which may not be the session's working directory — cd there explicitly:
 
    ```
-   npm run dashboard
+   cd /c/Users/yaniv/OneDrive/Projects/chasing-p1 && npm run dashboard
    ```
 
    The admin token is read from `.cp1-token` in the repo root — gitignored,

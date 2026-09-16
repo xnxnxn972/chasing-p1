@@ -576,7 +576,12 @@ h4 {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  min-width: 186px;
+  /* Was a flat 186px. With the 74px label and 24px number either side, plus
+     gaps and card padding, that floor alone came to ~320px — the entire width
+     of the smallest phones still in use. It now asks for 186px and accepts
+     less. */
+  flex: 1 1 186px;
+  min-width: 0;
 }
 
 .attr-row {
@@ -641,9 +646,22 @@ h4 {
 
 .career-grid {
   display: grid;
-  grid-template-columns: 322px 1fr;
+  /* minmax(0, ...) RATHER THAN A BARE TRACK SIZE.
+     `1fr` is shorthand for `minmax(auto, 1fr)`, and that `auto` floor is the
+     min-content width of whatever is in the track — it will not shrink below
+     it. The driver card's min-content is about 503px, so on a 393px phone the
+     track stayed 503px wide and the whole PAGE grew to match: the browser then
+     zoomed out to fit, which is why the game arrived too small to read and had
+     to be pinched. minmax(0, ...) lets the track shrink and the content wrap. */
+  grid-template-columns: minmax(0, 322px) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+}
+
+/* A flex column is a grid item here, and grid items carry the same auto
+   minimum. Belt and braces: neither the track nor the item can set a floor. */
+.career-grid > .stack {
+  min-width: 0;
 }
 
 .topbar {
@@ -1372,7 +1390,7 @@ details.more[open] > summary::before {
 
 @media (max-width: 860px) {
   .career-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   /* On a phone the decision is the point of the screen — the driver card and
