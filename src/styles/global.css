@@ -1423,12 +1423,20 @@ details.more[open] > summary::before {
     padding: 6px 0 10px;
   }
 
-  .setup-hero .lockup-lg .lockup-chasing {
-    font-size: 21px;
+  /* ONE WORDMARK, NOT THREE.
+     In the first hundred pixels the game was saying its own name three times:
+     the rule bar's "CHASING P1", the P1 monogram, and the lockup's "CHASING /
+     P1" set as type beside it. On a phone the mark alone carries the identity
+     — the rule bar directly above it already gives the name in words, and the
+     descriptor next to it ("F1 Career Simulation") is the part a stranger
+     actually needs. So the lockup keeps its mark and drops its wordmark. */
+  .setup-hero .lockup-bar,
+  .setup-hero .lockup-words {
+    display: none;
   }
 
-  .setup-hero .lockup-lg .lockup-p1 {
-    font-size: 42px;
+  .setup-hero .lockup {
+    justify-content: center;
   }
 
   .setup-hero .p1-mark {

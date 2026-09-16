@@ -87,7 +87,14 @@ export function App() {
           const next_ = updatePlayer({
             careers: p.careers + 1,
             lastPlayed: day,
-            streak: streakAfter(p.lastPlayed, p.streak, day)
+            streak: streakAfter(p.lastPlayed, p.streak, day),
+            // Remembered so tomorrow's form opens on this driver rather than
+            // empty. Written on START rather than on finish: somebody who
+            // abandons a career still chose that name.
+            lastName: next.name,
+            lastNumber: next.number,
+            lastNationality: next.nationality,
+            lastStyle: next.style
           });
           // Logged here rather than on mount: the streak only advances when a
           // career actually starts, so reading it at page load would record

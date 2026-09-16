@@ -43,6 +43,19 @@ export interface PlayerRecord {
   lastPlayed?: string;
   /** Consecutive days on which a career was started. */
   streak: number;
+  /**
+   * The driver this browser last raced as, so a returning player is handed
+   * back their own choices rather than a blank form.
+   *
+   * This is NOT the same as pre-filling a name for a stranger, which was
+   * considered and rejected: a generated name costs a new player the moment
+   * of deciding who they are. Giving somebody back the name they already
+   * chose costs nothing and saves them typing it again.
+   */
+  lastName?: string;
+  lastNumber?: number;
+  lastNationality?: string;
+  lastStyle?: string;
 }
 
 function blank(): PlayerRecord {

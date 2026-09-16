@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { DrivingStyle } from '../game/types';
 import type { CareerSetup } from '../game/careerEngine';
 import { NATIONALITIES } from '../data/nationalities';
@@ -97,10 +97,14 @@ export function SetupScreen({
   ambitionId?: string;
   challengeScore?: number;
 }) {
-  const [name, setName] = useState('');
-  const [number, setNumber] = useState(27);
-  const [nationality, setNationality] = useState('GB');
-  const [style, setStyle] = useState<DrivingStyle>('speed');
+  // Opened on the driver this browser last raced as. A returning player gets
+  // their own choices back rather than a blank form; a first-time player gets
+  // the defaults, and nothing is ever invented on their behalf.
+  const saved = player();
+  const [name, setName] = useState(saved.lastName ?? '');
+  const [number, setNumber] = useState(saved.lastNumber ?? 27);
+  const [nationality, setNationality] = useState(saved.lastNationality ?? 'GB');
+  const [style, setStyle] = useState<DrivingStyle>((saved.lastStyle as DrivingStyle) ?? 'speed');
   // A double-tap on Start fired onStart twice, burning a second career row.
   // This has to be a ref: two clicks landing in one React batch both see the
   // old value of a state variable, so a useState guard does not hold.
@@ -109,7 +113,7 @@ export function SetupScreen({
 
   // THE STREAK. Read once on mount: the record cannot change while this screen
   // is up, and re-reading it on every keystroke would be pointless work.
-  const me = useMemo(() => player(), []);
+  const me = saved;
   const playedToday = me.lastPlayed === today();
   const streak = streakIsAlive(me.lastPlayed) ? me.streak : 0;
 
