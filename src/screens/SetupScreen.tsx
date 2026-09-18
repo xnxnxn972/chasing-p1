@@ -338,8 +338,9 @@ export function SetupScreen({
               Curious how it works in real life?{' '}
               <a href="/how-to-become-an-f1-driver/">
                 How to become an F1 driver: the real road from karting to Formula 1
-              </a>
-              .
+              </a>{' '}
+              and{' '}
+              <a href="/what-is-an-f1-reserve-driver/">what an F1 reserve driver actually does</a>.
             </p>
           </div>
           <div>
