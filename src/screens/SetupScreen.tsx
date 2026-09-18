@@ -331,6 +331,16 @@ export function SetupScreen({
               There is no driving. Every season asks you a small number of hard
               questions and you live with the answers.
             </p>
+            {/* A real link, not a button: this is how a crawler finds the
+                article at all. A sitemap entry alone gets a page discovered;
+                an internal link is what makes it look like part of a site. */}
+            <p>
+              Curious how it works in real life?{' '}
+              <a href="/how-to-become-an-f1-driver/">
+                How to become an F1 driver: the real road from karting to Formula 1
+              </a>
+              .
+            </p>
           </div>
           <div>
             <h3>The questions are the game</h3>
