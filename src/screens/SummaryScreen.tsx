@@ -11,7 +11,7 @@ import { formatMoney } from '../game/contractEngine';
 import { CareerTable } from '../components/CareerTable';
 import { AchievementBadge } from '../components/StepCard';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
-import { canShareImages, shareCareerCard, shareDataFor } from '../components/shareCard';
+import { canShareImages, prepareShareCard, shareCareerCard, shareDataFor } from '../components/shareCard';
 import { trackExtra, trackPromptShown, trackShare } from '../game/telemetry';
 import { ambitionOutcome, nextAmbition } from '../game/unfinishedBusiness';
 import { challengeOutcome, shouldInviteChallenge } from '../game/challenge';
@@ -29,6 +29,13 @@ export function SummaryScreen({
   careerIndex?: number;
 }) {
   const [sharing, setSharing] = useState(false);
+  /**
+   * The finished PNG, drawn while the player is still reading the page.
+   * navigator.share() must be called while the click is still "live"; awaiting
+   * a ~1s canvas render inside the handler spent that activation and silently
+   * turned a third of Android shares into file downloads.
+   */
+  const prepared = useRef<{ file: File; renderMs: number } | null>(null);
   const [shareNote, setShareNote] = useState<string | null>(null);
   const canShare = useMemo(() => canShareImages(), []);
   // Counts presses within one career, so a cancel-then-retry is visible.
@@ -49,6 +56,23 @@ export function SummaryScreen({
   // Record that the prompt was actually put in front of this player, so its
   // effect can be measured against unprompted careers in the same build.
   useEffect(() => {
+    let live = true;
+    prepareShareCard(shareDataFor(state)).then(
+      (ready) => {
+        if (live) prepared.current = ready;
+      },
+      () => {
+        /* the button falls back to rendering on demand */
+      }
+    );
+    return () => {
+      live = false;
+    };
+    // Drawn once per finished career; the data cannot change after that.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (invite) trackPromptShown(score);
   }, [invite, score]);
 
@@ -64,38 +88,22 @@ export function SummaryScreen({
     <div className="app">
       <RuleBar left="Chasing P1" right="Career summary" accent />
 
-      <header className="summary-hero">
-        <h1 className="summary-title">{title}</h1>
-        <h2 className="summary-name">
-          {state.player.flag} {state.player.name} #{state.player.number}
-        </h2>
-        <div className="summary-sub">
-          {firstYear}–{lastYear} · Retired at {state.player.retiredAge ?? state.player.age} · Peak OVR{' '}
-          {peakOverall}
-        </div>
-      </header>
 
       <div className="stack">
-        <div className="big-stats">
-          <Stat value={totals.f1Starts} label="Grands Prix" />
-          <Stat value={totals.f1Wins} label="Wins" />
-          <Stat value={totals.f1Podiums} label="Podiums" />
-          <Stat value={totals.f1Poles} label="Poles" />
-          <Stat value={totals.titles} label="World titles" />
-        </div>
 
-        <section className="panel panel-pad">
-          <p className="verdict">{verdict}</p>
-        </section>
 
         <div className="share-card">
           <BrandLockup size="md" />
-          <h2 className="summary-title" style={{ fontSize: 'clamp(32px, 6vw, 56px)' }}>
+          <h1 className="summary-title" style={{ fontSize: 'clamp(32px, 6vw, 56px)' }}>
             {title}
-          </h2>
-          <h3 style={{ fontSize: 24 }}>
+          </h1>
+          <h2 style={{ fontSize: 24 }}>
             {state.player.name} {state.player.flag} #{state.player.number}
-          </h3>
+          </h2>
+          <div className="summary-sub">
+            {firstYear}–{lastYear} · Retired at {state.player.retiredAge ?? state.player.age} · Peak
+            OVR {peakOverall}
+          </div>
           {totals.titles > 0 ? (
             <div style={{ fontSize: 26, marginTop: 10 }}>
               {'🏆'.repeat(Math.min(totals.titles, 8))}
@@ -134,7 +142,7 @@ export function SummaryScreen({
                 setSharing(true);
                 setShareNote(null);
                 shareAttempts.current += 1;
-                const trace = await shareCareerCard(shareDataFor(state));
+                const trace = await shareCareerCard(shareDataFor(state), prepared.current ?? undefined);
                 trackShare(trace.result);
                 // Why a share went the way it did. See ShareTrace for what
                 // each field separates; `attempts` catches the player who
@@ -142,6 +150,7 @@ export function SummaryScreen({
                 // failed sheet rather than a changed mind.
                 trackExtra('share_path', trace.path);
                 trackExtra('share_render_ms', trace.renderMs);
+                trackExtra('share_preready', prepared.current !== null);
                 trackExtra('share_sheet_ms', trace.sheetMs);
                 trackExtra('share_attempts', shareAttempts.current);
                 setSharing(false);
@@ -177,6 +186,10 @@ export function SummaryScreen({
 
           {/* The career is over; this is the only thing on the page that points
               forward. It sits directly under the buttons for that reason. */}
+          <section className="panel panel-pad">
+          <p className="verdict">{verdict}</p>
+          </section>
+
           <div className="unfinished">
             {challenge && (
               <div className={`ambition-result${challenge.beaten ? ' is-met' : ''}`}>

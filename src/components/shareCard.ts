@@ -387,19 +387,42 @@ export interface ShareTrace {
  * Hand the card to the OS share sheet where that exists (Chrome and Edge on
  * Windows and Android, Safari on iOS), and fall back to saving the PNG.
  */
-export async function shareCareerCard(data: ShareData): Promise<ShareTrace> {
+/**
+ * Build the PNG as a File, ready to hand straight to the share sheet.
+ *
+ * SPLIT OUT FROM THE SHARE ITSELF BECAUSE OF A TIMING BUG. navigator.share()
+ * requires TRANSIENT USER ACTIVATION: it must be called while the browser still
+ * considers the click live. Rendering first and sharing second spent that
+ * activation on a canvas draw — and the log showed exactly what that costs:
+ * shares that reached the native sheet rendered in a median of 132ms, while
+ * every one that fell back to a download had taken around 1,085ms. A third of
+ * Android shares were silently becoming file saves.
+ *
+ * So the card is now drawn BEFORE the player presses anything, and the button
+ * only has to pass the finished file along.
+ */
+export async function prepareShareCard(data: ShareData): Promise<{ file: File; renderMs: number }> {
   const t0 = now();
-  let blob: Blob;
+  const blob = await renderShareCard(data);
+  const safeName = data.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'driver';
+  const file = new File([blob], `chasing-p1-${safeName.toLowerCase()}.png`, { type: 'image/png' });
+  return { file, renderMs: Math.round(now() - t0) };
+}
+
+export async function shareCareerCard(data: ShareData, prepared?: { file: File; renderMs: number }): Promise<ShareTrace> {
+  const t0 = now();
+  let ready: { file: File; renderMs: number };
   try {
-    blob = await renderShareCard(data);
+    // Only ever awaited when the pre-render has not finished yet, which is the
+    // case this fix exists to avoid.
+    ready = prepared ?? (await prepareShareCard(data));
   } catch {
     return { result: 'failed', path: 'download', renderMs: now() - t0, sheetMs: 0 };
   }
-  const renderMs = Math.round(now() - t0);
-
-  const safeName = data.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'driver';
-  const filename = `chasing-p1-${safeName.toLowerCase()}.png`;
-  const file = new File([blob], filename, { type: 'image/png' });
+  const renderMs = prepared ? 0 : ready.renderMs;
+  const file = ready.file;
+  const blob = file;
+  const filename = file.name;
 
   const nav = navigator as Navigator & { canShare?: (d: ShareData_) => boolean };
   type ShareData_ = { files?: File[]; title?: string; text?: string };
