@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#05070a" />
+    <!-- Without max-image-preview:large Google shows a thumbnail or nothing at
+         all beside a result, and the page is not eligible for Discover's image
+         treatment at all. The other two lift the caps on snippet length and
+         video preview. They cost nothing and are a prerequisite for every
+         image-rich surface Google has. -->
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <!-- Google Search Console ownership. A public token by design, not a
          secret: verification works precisely because anyone can read it.
          Removing it un-verifies the property and stops the query data. -->
