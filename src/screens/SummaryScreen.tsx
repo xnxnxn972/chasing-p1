@@ -190,10 +190,15 @@ export function SummaryScreen({
                 </p>
               </div>
             )}
-            {carried && (
-              <div className={`ambition-result${carried.met ? ' is-met' : ''}`}>
-                <span className="label">{carried.met ? 'Ambition met' : 'Ambition missed'}</span>
-                <p>{carried.met ? carried.ambition.done : carried.ambition.missed}</p>
+            {/* Only when the ambition was MET. A missed one hands back the same
+                ambition, so "Ambition missed — you never won the championship"
+                sat directly above "challenge yourself to win the World
+                Championship" and said it twice. The teaser carries the failure
+                by implication; this panel is the reward for clearing it. */}
+            {carried?.met && (
+              <div className="ambition-result is-met">
+                <span className="label">Ambition met</span>
+                <p>{carried.ambition.done}</p>
               </div>
             )}
           </div>
@@ -229,7 +234,7 @@ export function SummaryScreen({
 
         <div className="actions">
           <button className="btn btn-primary" onClick={onRestart}>
-            Start a new career
+            Play again
           </button>
         </div>
 
