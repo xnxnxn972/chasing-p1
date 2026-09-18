@@ -11,7 +11,7 @@ import { formatMoney } from '../game/contractEngine';
 import { CareerTable } from '../components/CareerTable';
 import { AchievementBadge } from '../components/StepCard';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
-import { canShareImages, gameUrl, shareCareerCard, shareDataFor } from '../components/shareCard';
+import { canShareImages, shareCareerCard, shareDataFor } from '../components/shareCard';
 import { trackExtra, trackPromptShown, trackShare } from '../game/telemetry';
 import { ambitionOutcome, nextAmbition } from '../game/unfinishedBusiness';
 import { challengeOutcome, shouldInviteChallenge } from '../game/challenge';
@@ -28,8 +28,6 @@ export function SummaryScreen({
   previousBest?: number;
   careerIndex?: number;
 }) {
-  const [copied, setCopied] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareNote, setShareNote] = useState<string | null>(null);
   const canShare = useMemo(() => canShareImages(), []);
@@ -61,18 +59,6 @@ export function SummaryScreen({
   const peakValue = state.history.reduce((max, h) => Math.max(max, h.salary), 0);
   const firstYear = state.history[0]?.year ?? state.year;
   const lastYear = state.history[state.history.length - 1]?.year ?? state.year;
-
-  const shareText = [
-    `${title} — ${state.player.name} ${state.player.flag} #${state.player.number}`,
-    `F1 CAREER ${f1Seasons[0]?.year ?? '—'}–${lastYear}`,
-    totals.titles > 0 ? `${'🏆'.repeat(Math.min(totals.titles, 8))} ${totals.titles}× WORLD CHAMPION` : 'NO TITLES',
-    `${totals.f1Wins} wins · ${totals.f1Podiums} podiums · ${totals.f1Poles} poles`,
-    teamPath.join(' → ') || 'Never reached Formula 1',
-    `Peak OVR ${peakOverall} · Career score ${score.toLocaleString()} (${percentile})`,
-    'Think you can beat that?',
-    `CHASING P1 — ${TAGLINE.toUpperCase()}`,
-    gameUrl(score)
-  ].join('\n');
 
   return (
     <div className="app">
@@ -165,26 +151,29 @@ export function SummaryScreen({
             >
               {sharing ? 'Preparing…' : canShare ? 'Share career' : 'Save career image'}
             </button>
-            {/* Sits beside the primary action rather than below the ambition
-                panels, because 18 of the first 92 share presses ended in
-                `downloaded` — people who saved the picture and were given no
-                way at all to send the link with it. */}
-            <button
-              className="btn"
-              onClick={() => {
-                trackShare('link_copied');
-                navigator.clipboard?.writeText(gameUrl(score)).then(
-                  () => setLinkCopied(true),
-                  () => setLinkCopied(false)
-                );
-              }}
-            >
-              {linkCopied ? 'Link copied' : 'Copy link'}
-            </button>
             <button className="btn" onClick={onRestart}>
-              {next ? 'Take it on' : 'Play again'}
+              Play again
             </button>
+            {shareNote ? <span className="share-note">{shareNote}</span> : null}
           </div>
+
+          {/* THE REASON TO PRESS IT, not a second button.
+              "Challenge yourself" and "Play again" started the same career and
+              differed only in wording, so one of them had to go. The ambition
+              works better as the sentence attached to the action than as a
+              panel underneath asking the player to look somewhere else. */}
+          {next ? (
+            <p className="next-challenge">
+              <span className="label">Unfinished business</span>
+              But this time, challenge yourself to {next.label.charAt(0).toLowerCase() + next.label.slice(1)}.
+            </p>
+          ) : (
+            <p className="next-challenge">
+              <span className="label">Nothing left to prove</span>
+              You have done everything this sport can ask of a driver. Start again and see whether
+              it was you or the car.
+            </p>
+          )}
 
           {/* The career is over; this is the only thing on the page that points
               forward. It sits directly under the buttons for that reason. */}
@@ -207,36 +196,6 @@ export function SummaryScreen({
                 <p>{carried.met ? carried.ambition.done : carried.ambition.missed}</p>
               </div>
             )}
-            {next ? (
-              <div className="ambition-next">
-                <span className="label">Unfinished business</span>
-                <p className="missed">{next.missed}</p>
-                <strong>{next.label}</strong>
-              </div>
-            ) : (
-              <div className="ambition-next">
-                <span className="label">Nothing left to prove</span>
-                <p className="missed">
-                  You have done everything this sport can ask of a driver. Start again and see
-                  whether it was you or the car.
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="share-actions">
-            <button
-              className="btn btn-ghost"
-              onClick={() => {
-                trackShare('copied');
-                navigator.clipboard?.writeText(shareText).then(
-                  () => setCopied(true),
-                  () => setCopied(false)
-                );
-              }}
-            >
-              {copied ? 'Copied to clipboard' : 'Copy as text'}
-            </button>
-            {shareNote ? <span className="share-note">{shareNote}</span> : null}
           </div>
         </div>
 
