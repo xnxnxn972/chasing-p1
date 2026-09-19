@@ -340,7 +340,11 @@ export function SetupScreen({
                 How to become an F1 driver: the real road from karting to Formula 1
               </a>{' '}
               and{' '}
-              <a href="/what-is-an-f1-reserve-driver/">what an F1 reserve driver actually does</a>.
+              <a href="/what-is-an-f1-reserve-driver/">what an F1 reserve driver actually does</a>, or{' '}
+              <a href="/f1-team-moves-that-changed-history/">
+                three team moves that changed Formula 1 history
+              </a>
+              .
             </p>
           </div>
           <div>
