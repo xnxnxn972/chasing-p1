@@ -344,7 +344,8 @@ export function SetupScreen({
               <a href="/f1-team-moves-that-changed-history/">
                 three team moves that changed Formula 1 history
               </a>
-              .
+              , or{' '}
+              <a href="/how-much-do-f1-drivers-get-paid/">how much F1 drivers actually get paid</a>.
             </p>
           </div>
           <div>
