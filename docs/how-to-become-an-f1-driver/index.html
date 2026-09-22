@@ -334,5 +334,39 @@
         <a href="/">Chasing P1</a>, a decision-driven Formula 1 career simulation. One career. One goal.
       </footer>
     </div>
+    <!-- One row per read, so an article nobody reaches is distinguishable from
+         one that is read and ignored. Honours the same ?dev=1 opt-out the game
+         uses, skips self-identifying bots, sends nothing a reader typed, and
+         fires a second late so a visitor who leaves at once costs nothing. A
+         failure here must never affect the page. -->
+    <script>
+      (function () {
+        try { if (localStorage.getItem('cp1.dev') === '1') return; } catch (e) {}
+        var ua = navigator.userAgent || '';
+        if (navigator.webdriver === true) return;
+        if (/bot|crawl|spider|slurp|headless|phantom|preview|lighthouse/i.test(ua)) return;
+        var id;
+        try { id = crypto.randomUUID(); }
+        catch (e) { id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+        var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtdnhhbnFrb3JjZnh3c2R1c3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjI4OTgsImV4cCI6MjA5NTI5ODg5OH0.7o7OnhikQdgApqPTEIbhjOZ-YcKDU1fBFpcLXPXtEtA';
+        setTimeout(function () {
+          try {
+            fetch('https://hmvxanqkorcfxwsdusuj.supabase.co/rest/v1/rpc/cp_log_load', {
+              method: 'POST',
+              keepalive: true,
+              headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: 'Bearer ' + KEY },
+              body: JSON.stringify({ p: {
+                visit_id: id,
+                page: location.pathname,
+                referrer: (document.referrer || '').slice(0, 300),
+                device: /Mobi|Android|iPhone|iPad/.test(ua) ? 'mobile' : 'desktop',
+                screen: (screen.width || 0) + 'x' + (screen.height || 0),
+                webdriver: false
+              } })
+            }).catch(function () {});
+          } catch (e) {}
+        }, 1000);
+      })();
+    </script>
   </body>
 </html>
