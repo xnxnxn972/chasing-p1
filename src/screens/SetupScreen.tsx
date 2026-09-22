@@ -345,7 +345,12 @@ export function SetupScreen({
                 three team moves that changed Formula 1 history
               </a>
               , or{' '}
-              <a href="/how-much-do-f1-drivers-get-paid/">how much F1 drivers actually get paid</a>.
+              <a href="/how-much-do-f1-drivers-get-paid/">how much F1 drivers actually get paid</a>,
+              or{' '}
+              <a href="/chances-of-becoming-an-f1-driver/">
+                the honest chances of becoming an F1 driver
+              </a>
+              .
             </p>
           </div>
           <div>
