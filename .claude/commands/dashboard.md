@@ -29,6 +29,13 @@ Refresh the Chasing P1 analytics dashboard and republish it.
 2. Read `dashboard.data.json` for the numbers you are about to describe.
    Do not describe numbers you have not read.
 
+   For the page-load funnel (arrivals, bounce, load-to-start) run
+   `npm run loads` rather than querying cp_loads by hand. It applies three
+   filters that have each produced a wrong number once already: `page = '/'`
+   (article reads share the table and would otherwise count as bounces),
+   `dev` (our own testing) and `webdriver`. The dashboard itself reads
+   cp_sessions only and needs none of them.
+
 3. Publish `dashboard.html` to the EXISTING artifact, in place:
 
    - URL: https://claude.ai/artifact/FvvxSNd9h2j9pmHZpLDwTF
