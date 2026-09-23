@@ -164,6 +164,12 @@ function looksAutomated(): boolean {
   } catch {
     // No URL to read; fall through to the checks below.
   }
+  // Only a page served over the web is a real visit. A file:// open, a data:
+  // snapshot from a preview pane or a blob: is one of us looking at the build,
+  // and it lands in cp_loads looking like traffic. Deliberately after the
+  // ?tel=force check, so forcing a write from a local build still works.
+  if (typeof location !== 'undefined'
+      && location.protocol !== 'https:' && location.protocol !== 'http:') return true;
   if ((navigator as Navigator & { webdriver?: boolean }).webdriver === true) return true;
   const ua = navigator.userAgent || '';
   return /bot|crawl|spider|slurp|headless|phantom|puppeteer|playwright|selenium|lighthouse|scanner|curl\/|wget|python-requests|facebookexternalhit|bingpreview|preview/i.test(

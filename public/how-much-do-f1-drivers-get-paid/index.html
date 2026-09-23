@@ -491,6 +491,11 @@
          failure here must never affect the page. -->
     <script>
       (function () {
+        // Only a real page served over the web is a read. A local file, a
+        // data: snapshot from a preview pane or a blob: is one of us looking
+        // at the page, and it writes a junk `page` value that no filter in
+        // tools/loads.mjs expects.
+        if (location.protocol !== 'https:' && location.protocol !== 'http:') return;
         try { if (localStorage.getItem('cp1.dev') === '1') return; } catch (e) {}
         var ua = navigator.userAgent || '';
         if (navigator.webdriver === true) return;
