@@ -359,6 +359,11 @@
         var id;
         try { id = crypto.randomUUID(); }
         catch (e) { id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+        // One page, one `page` value. Both /slug/ and /slug/index.html serve
+        // this file, so without this the same article splits across two rows
+        // in every report and neither one is the real total.
+        var page = location.pathname.replace(/\/index\.html?$/i, '/');
+        if (!/\/$|\.[a-z0-9]+$/i.test(page)) page += '/';
         var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtdnhhbnFrb3JjZnh3c2R1c3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjI4OTgsImV4cCI6MjA5NTI5ODg5OH0.7o7OnhikQdgApqPTEIbhjOZ-YcKDU1fBFpcLXPXtEtA';
         setTimeout(function () {
           try {
@@ -368,7 +373,7 @@
               headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: 'Bearer ' + KEY },
               body: JSON.stringify({ p: {
                 visit_id: id,
-                page: location.pathname,
+                page: page,
                 referrer: (document.referrer || '').slice(0, 300),
                 device: /Mobi|Android|iPhone|iPad/.test(ua) ? 'mobile' : 'desktop',
                 screen: (screen.width || 0) + 'x' + (screen.height || 0),
