@@ -27,6 +27,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { isBotReferrer } from './exclusions.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -91,7 +92,7 @@ const sessions = await fetchAll('cp_sessions_admin');
 console.log(`fetched ${loads.length} loads, ${sessions.length} careers`);
 
 // Real human traffic to the GAME. See the three filters in the header comment.
-const real = loads.filter((l) => !l.dev && !l.webdriver);
+const real = loads.filter((l) => !l.dev && !l.webdriver && !isBotReferrer(l.referrer));
 const game = real.filter((l) => l.page === '/');
 const articles = real.filter((l) => l.page !== '/');
 
@@ -145,4 +146,5 @@ if (!fromArticle.length) {
 
 rule('EXCLUDED');
 console.log(`  our own testing (dev)   ${loads.filter((l) => l.dev).length}`);
+console.log(`  known automation       ${loads.filter((l) => isBotReferrer(l.referrer)).length}`);
 console.log(`  self-identifying bots   ${loads.filter((l) => l.webdriver).length}`);

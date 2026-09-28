@@ -18,6 +18,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { isBotReferrer, outlierVisits } from './exclusions.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -290,7 +291,9 @@ function isDev(row) {
 }
 
 function build(rows) {
-  const post = rows.filter((r) => Date.parse(r.created_at) >= POST_AT && !isDev(r));
+  const post = rows.filter(
+    (r) => Date.parse(r.created_at) >= POST_AT && !isDev(r) && !isBotReferrer(r.referrer)
+  );
   for (const r of post) {
     r._source = sourceOf(r);
     r._via = viaOf(r);
@@ -300,6 +303,7 @@ function build(rows) {
   const perVisit = new Map();
   for (const r of post) perVisit.set(r.visit_id, (perVisit.get(r.visit_id) || 0) + 1);
   const counts = [...perVisit.values()].sort((a, b) => b - a);
+  const outliers = outlierVisits(post, perVisit);
 
   const hours = series(post, hourKey);
   const now = Date.now();
@@ -326,7 +330,10 @@ function build(rows) {
       deepVisits: counts.filter((c) => c >= 5).length,
       maxCareers: counts[0] ?? 0,
       prePost: rows.filter((r) => Date.parse(r.created_at) < POST_AT).length,
-      devExcluded: rows.filter((r) => Date.parse(r.created_at) >= POST_AT && isDev(r)).length
+      devExcluded: rows.filter((r) => Date.parse(r.created_at) >= POST_AT && isDev(r)).length,
+      botExcluded: rows.filter(
+        (r) => Date.parse(r.created_at) >= POST_AT && !isDev(r) && isBotReferrer(r.referrer)
+      ).length
     },
     hours,
     days: series(post, dayKey),
@@ -338,6 +345,7 @@ function build(rows) {
     // Uncapped, so the donut's "other" slice is every remaining country and
     // the ring sums to every visit that has a country at all.
     allCountries: rank(post, (r) => countryName(r.geo_country)),
+    outliers,
     countryCount: new Set(post.map((r) => r.geo_country).filter(Boolean)).size,
     devices: rank(post, (r) => `${r.device} / ${r.platform || '—'}`),
     verdicts: rank(post.filter((r) => r.finished), (r) => r.career_title || 'unnamed', { limit: 12 }),
@@ -384,9 +392,19 @@ writeFileSync(htmlOut, html);
 writeFileSync(join(here, '..', 'dashboard.data.json'), JSON.stringify(data, null, 2));
 console.log(
   `fetched ${rows.length} rows (${data.totals.prePost} pre-post, ` +
-    `${data.totals.devExcluded} dev) -> ${data.totals.careers} careers, ` +
+    `${data.totals.devExcluded} dev, ${data.totals.botExcluded} bot) -> ${data.totals.careers} careers, ` +
     `${data.totals.visits} visits, ${data.hours.length} hourly buckets`
 );
+if (data.outliers.length) {
+  console.warn("");
+  console.warn(`  !! ${data.outliers.length} visit(s) above the human range still counted:`);
+  for (const o of data.outliers) {
+    console.warn(`     ${String(o.careers).padStart(4)} careers  ${o.day}  ${o.referrer}`);
+  }
+  console.warn("     Check these before quoting the career total. If one is");
+  console.warn("     automation, add its referrer to tools/exclusions.mjs.");
+  console.warn("");
+}
 if (truncated) {
   console.warn("");
   console.warn("  !! TRUNCATED at the old 2,000-row ceiling.");
