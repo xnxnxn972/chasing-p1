@@ -19,6 +19,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { isBotReferrer, outlierVisits } from './exclusions.mjs';
+import { cleanPlayerLabel } from './nameFilter.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -360,7 +361,7 @@ function build(rows) {
       .sort((a, b) => b.career_score - a.career_score)
       .slice(0, 8)
       .map((r) => ({
-        player: r.player,
+        player: cleanPlayerLabel(r.player),
         title: r.career_title,
         score: r.career_score,
         titles: r.titles,
