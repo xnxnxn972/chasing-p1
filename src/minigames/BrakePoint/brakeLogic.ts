@@ -19,14 +19,17 @@
 /**
  * Deceleration under full braking, m/s².
  *
- * 32 m/s² is about 3.3g. Modern F1 peaks higher than that on initial bite,
- * around 4-5g, but peak is not what governs a whole braking zone: the car
- * cannot hold peak once it starts bleeding speed and downforce with it. 3.3g
- * as a constant lands the Monza-style zone at 113m, which is the right order
- * for that corner, so it is the honest simplification rather than the
- * flattering one.
+ * 26 m/s² is about 2.65g. Modern F1 peaks far higher on initial bite, nearer
+ * 4-5g, but peak is not what governs a whole braking zone: the car cannot hold
+ * it once speed and the downforce that made it possible start bleeding away.
+ * A sustained average nearer 2.6g is the more honest figure anyway.
+ *
+ * Lowered from 3.3g after playtesting. A softer car brakes from further out
+ * and spends longer doing it, which is most of the extra room the game needed:
+ * the pedal is down for well over two seconds, so turning in is a moment you
+ * arrive at rather than one you have to catch.
  */
-export const DECEL = 32;
+export const DECEL = 26;
 
 const KMH = 1 / 3.6;
 
@@ -45,37 +48,41 @@ export interface Corner {
 }
 
 /**
- * Three corners, in the order the brief asked for: a big obvious stop, then a
- * hairpin, then a fast corner where the whole braking zone is short enough
- * that being three metres greedy is most of your margin.
+ * Three corners: a big obvious stop, then a hairpin, then a fast corner.
+ *
+ * Speeds came down and run-ups went up after playtesting. The run-up is the
+ * quieter of the two changes and possibly the more important one: it is the
+ * seconds you get to read the boards and commit before anything is being
+ * asked of you, and at the old lengths the corner arrived while you were still
+ * working out where you were.
  */
 export const CORNERS: Corner[] = [
   {
     id: 'chicane',
     name: 'Turn 1',
     label: 'Chicane',
-    entryKmh: 318,
+    entryKmh: 290,
     apexKmh: 85,
-    runUpM: 330,
+    runUpM: 430,
     note: 'The longest braking zone on the calendar. Everything happens slowly enough to think.'
   },
   {
     id: 'hairpin',
     name: 'Turn 6',
     label: 'Hairpin',
-    entryKmh: 285,
+    entryKmh: 265,
     apexKmh: 110,
-    runUpM: 280,
+    runUpM: 390,
     note: 'Less speed to shed, so less room to be wrong in.'
   },
   {
     id: 'fast',
     name: 'Turn 9',
     label: 'Fast right',
-    entryKmh: 275,
+    entryKmh: 250,
     apexKmh: 180,
-    runUpM: 240,
-    note: 'Barely a braking zone at all. A few metres is the whole margin.'
+    runUpM: 350,
+    note: 'Barely a braking zone at all. Nerve matters more than the boards here.'
   }
 ];
 
@@ -102,6 +109,8 @@ export interface Verdict {
   idealM: number;
   /** Positive braked too early, negative braked too late. */
   errorM: number;
+  /** The same error in seconds, which is what the bands are actually set in. */
+  errorS: number;
   band: Band;
   label: string;
   note: string;
@@ -112,82 +121,145 @@ export interface Verdict {
 }
 
 /**
+ * TOLERANCES ARE IN SECONDS, NOT METRES.
+ *
+ * The first version banded on metres and was unplayable: gravel began four
+ * metres late, which at 88 m/s is 45 milliseconds. Nobody judges a rushing
+ * scene to 45ms — visual judgement lags further behind than that on its own —
+ * so gravel was not a punishment for greed, it was the default outcome, and
+ * every single run ended in it.
+ *
+ * Metres also made the three corners wildly unequal. A player's error is a
+ * TIME error, and converting it at entry speed means the same hesitation costs
+ * more metres the faster you are going — so the fast corner, with the shortest
+ * zone, was demanding a precision it had never asked for. Setting the bands in
+ * seconds and letting each corner convert them to its own metres makes all
+ * three ask the same thing of the player.
+ *
+ * The windows are deliberately generous. Being on the limit should feel like
+ * nerve, not like winning a coin toss.
+ */
+export const LIMIT_S = 0.13; // either side: on the limit
+export const GOOD_S = 0.38; // early: tidy
+export const SAFE_S = 0.8; // early: safe and slow
+export const LOCKUP_S = 0.32; // later than this and the corner is gone
+
+/**
  * Score the braking point.
  *
- * DELIBERATELY ASYMMETRIC, because that asymmetry is the whole game. Braking
- * early is safe and mediocre and costs you slowly: a metre early is worth
- * about a point and a quarter. Braking late is worth about nineteen and a half
- * points a metre, so three metres of greed takes a 99 to a 41.
- *
- * The anchors are the ones in the brief — 20m early is 74, 7m early is ~91,
- * on the money is 99, 3m late is 41 — and the two slopes are set to hit them.
- * A player who is nudging their braking point later run by run gets rewarded
- * in single points and punished in tens, which is what makes the last few
- * metres feel like a decision rather than an adjustment.
+ * STILL ASYMMETRIC, because that asymmetry is the whole game: early is safe
+ * and mediocre, late is quick right up until it is catastrophic. But both
+ * slopes are now in time, and late is about three times as steep as early
+ * rather than sixteen times. Creeping later still pays in ones and costs in
+ * tens; it no longer costs everything for a mistake shorter than a blink.
  */
 export function scoreBraking(c: Corner, brakeAtM: number): Verdict {
   const idealM = idealBrakePoint(c);
   const errorM = brakeAtM - idealM;
-  const early = errorM >= 0;
+  const errorS = errorM / entryMs(c);
+  const early = errorS >= 0;
 
-  const raw = early ? 99 - errorM * 1.25 : 99 - Math.abs(errorM) * 19.5;
+  const raw = early ? 99 - 62 * (errorS / SAFE_S) : lateScore(Math.abs(errorS));
   const score = Math.max(0, Math.min(99, Math.round(raw)));
 
-  // Early loss is exact: you reach the apex speed short of the corner and
-  // crawl the rest of the way, so you give away the difference between doing
-  // those metres at apex speed and doing them flat out.
-  // Late loss is not a physics result but a consequence — a locked front and
-  // a wide exit — so it is charged per metre of overshoot instead.
-  const lostS = early
-    ? errorM * (1 / apexMs(c) - 1 / entryMs(c))
-    : Math.abs(errorM) * 0.04;
+  // Early loss is exact: you reach apex speed short of the corner and crawl
+  // the rest of the way, giving away the difference between covering those
+  // metres at apex speed and covering them flat out.
+  // Late loss is not a physics result but a consequence — a locked front and a
+  // wide exit — so it is charged against the overshoot instead.
+  const lostS = early ? errorM * (1 / apexMs(c) - 1 / entryMs(c)) : Math.abs(errorM) * 0.016;
 
-  const { band, label, note } = bandFor(errorM);
-  return { brakeAtM, idealM, errorM, band, label, note, score, lostS };
+  const { band, label, note } = bandFor(errorS);
+  return { brakeAtM, idealM, errorM, errorS, band, label, note, score, lostS };
 }
 
-function bandFor(errorM: number): { band: Band; label: string; note: string } {
-  if (errorM < -4) {
-    return { band: 'off', label: 'Gravel', note: 'Far too late. You were a passenger from the moment you touched the pedal.' };
+/**
+ * The late side of the curve, bent to agree with the words next to it.
+ *
+ * A single straight line put an "on the limit" run on 71 and a "Gravel" one
+ * on 46, so the label and the number were arguing with each other. This one
+ * passes through the band edges instead: the far edge of on-the-limit is 80,
+ * the far edge of a lock-up is 35, and it reaches nothing shortly after the
+ * corner is gone.
+ */
+function lateScore(lateS: number): number {
+  if (lateS <= LIMIT_S) return 99 - (19 * lateS) / LIMIT_S;
+  if (lateS <= LOCKUP_S) return 80 - (45 * (lateS - LIMIT_S)) / (LOCKUP_S - LIMIT_S);
+  return 35 - (35 * (lateS - LOCKUP_S)) / 0.22;
+}
+
+function bandFor(errorS: number): { band: Band; label: string; note: string } {
+  if (errorS < -LOCKUP_S) {
+    return {
+      band: 'off',
+      label: 'Gravel',
+      note: 'Far too late. You were a passenger from the moment you touched the pedal.'
+    };
   }
-  if (errorM < -1) {
+  if (errorS < -LIMIT_S) {
     return { band: 'lockup', label: 'Lock-up', note: 'The front locked and you ran wide. Greedy.' };
   }
-  if (errorM < 4) {
+  if (errorS < LIMIT_S) {
     return { band: 'limit', label: 'On the limit', note: 'That is where the good ones brake.' };
   }
-  if (errorM < 15) {
+  if (errorS < GOOD_S) {
     return { band: 'good', label: 'Good', note: 'Tidy. There is still a little left in it.' };
   }
-  if (errorM < 35) {
-    return { band: 'safe', label: 'Safe', note: 'Never going to hurt you, never going to beat anyone.' };
+  if (errorS < SAFE_S) {
+    return {
+      band: 'safe',
+      label: 'Safe',
+      note: 'Never going to hurt you, never going to beat anyone.'
+    };
   }
-  return { band: 'early', label: 'Way early', note: 'You braked for a corner that was still a long way off.' };
+  return {
+    band: 'early',
+    label: 'Way early',
+    note: 'You braked for a corner that was still a long way off.'
+  };
 }
 
 /**
  * The release, which is the trail-braking half.
  *
  * Judged on the speed the car is doing when the pedal comes up: let go while
- * still carrying too much and the car washes wide, sit on the pedal past the
- * apex speed and you have simply thrown away time in a straight line.
+ * still carrying too much and the car washes wide, sit on the pedal past apex
+ * speed and you have thrown away time in a straight line.
  *
- * Capped, and small next to the braking point. This is V1 and the brake point
- * is the thing being tested; the release is here so that holding the pedal is
- * a real action rather than a formality.
+ * Capped, and small next to the braking point. The brake point is the thing
+ * being tested; the release is here so that holding the pedal is an action
+ * rather than a formality.
  */
-export const MAX_RELEASE_PENALTY = 18;
+export const MAX_RELEASE_PENALTY = 12;
 
-export function releasePenalty(c: Corner, speedAtRelease: number): { penalty: number; note: string } {
+/**
+ * How far off apex speed the release can be before it costs anything, m/s.
+ *
+ * Widened from 2 to 8 along with everything else. At 2 m/s the dead zone was
+ * about a tenth of a second of pedal, so a run with a perfectly good braking
+ * point was still losing points for a release nobody could have placed better.
+ */
+export const RELEASE_SLACK = 8;
+
+export function releasePenalty(
+  c: Corner,
+  speedAtRelease: number
+): { penalty: number; note: string } {
   const vc = apexMs(c);
   const diff = speedAtRelease - vc;
-  if (diff > 2) {
-    const penalty = Math.min(MAX_RELEASE_PENALTY, Math.round((diff - 2) * 2.2));
-    return { penalty, note: penalty > 0 ? 'Off the brakes too early, still carrying speed.' : '' };
+  if (diff > RELEASE_SLACK) {
+    const penalty = Math.min(MAX_RELEASE_PENALTY, Math.round((diff - RELEASE_SLACK) * 1.1));
+    return {
+      penalty,
+      note: penalty > 0 ? 'Off the brakes early, still carrying speed into the corner.' : ''
+    };
   }
-  if (diff < -2) {
-    const penalty = Math.min(MAX_RELEASE_PENALTY, Math.round(Math.abs(diff + 2) * 1.4));
-    return { penalty, note: penalty > 0 ? 'Stayed on the pedal too long and killed the entry.' : '' };
+  if (diff < -RELEASE_SLACK) {
+    const penalty = Math.min(MAX_RELEASE_PENALTY, Math.round(Math.abs(diff + RELEASE_SLACK) * 0.8));
+    return {
+      penalty,
+      note: penalty > 0 ? 'Stayed on the pedal too long and killed the entry.' : ''
+    };
   }
   return { penalty: 0, note: '' };
 }
@@ -205,6 +277,6 @@ export function errorPhrase(errorM: number): string {
   const n = Math.round(Math.abs(errorM));
   if (n === 0) return 'perfect';
   if (errorM < 0) return `${n}m late`;
-  if (n <= 2) return `${n}m from perfect`;
+  if (n <= 3) return `${n}m from perfect`;
   return `${n}m early`;
 }
