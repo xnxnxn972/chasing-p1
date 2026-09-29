@@ -351,7 +351,7 @@ function step(state: GameState): GameState {
             game: 'lights-out',
             tag: 'Race day',
             title: 'Lights out',
-            body: 'Five red lights. Go the moment they disappear.'
+            body: 'Hold the clutch. Let go the moment the lights go out.'
           };
         }
         break;

@@ -23,15 +23,23 @@ type Phase = 'ready' | 'lighting' | 'holding' | 'out' | 'done';
  *                      somebody's career into an arcade they never leave.
  *   mode="standalone"  retry forever, keeps a personal best.
  *
+ * THE MECHANIC IS HOLD-AND-RELEASE. The player holds the clutch while the
+ * lights come on and lets go when they go out, because that is what a driver
+ * actually does: already in first at pre-start revs, dropping the clutch to
+ * its bite point. Releasing while the lights are still on is a jump start,
+ * which means anticipation is caught by the rules of the game rather than by
+ * a special case.
+ *
  * TIMING. The clock is `performance.now()` taken in the event handler, not
  * React state. State updates are batched and can land a frame or more after
  * the event, which at 60fps is 16ms of invented reaction time — roughly the
  * difference between two of the rating bands. The lights-out instant is
  * likewise stamped in the timeout that clears them, before any render.
  *
- * INPUT. Pointer, keyboard and touch all route through one handler. The
- * surface is a real <button> so that the space bar, which is what anyone will
- * reach for, works without a keydown listener on the document.
+ * INPUT. The surface is a real <button>, so the space bar works without a
+ * document listener. Pointer capture is taken on press: a finger that slides
+ * off the button mid-hold must still deliver its release here, or letting go
+ * would never be seen and the round would hang.
  */
 export function LightsOut({
   mode,
@@ -129,26 +137,42 @@ export function LightsOut({
     [best, clearTimers, mode, onComplete]
   );
 
-  const press = useCallback(() => {
-    // Read the clock FIRST. Anything done before this — a branch, a state
-    // read — is time charged to the player's reaction.
-    const now = performance.now();
+  /** Back to the grid, clutch out, nothing running. */
+  const reset = useCallback(() => {
+    clearTimers();
+    running.current = false;
+    outAt.current = null;
+    setResult(null);
+    setLit(0);
+    setPhase('ready');
+  }, [clearTimers]);
 
-    // No round in progress: this is a start. Covers both the first play and,
-    // in standalone mode, tapping the surface again after a result. In career
-    // mode the surface is disabled once done, so this cannot restart a career
-    // attempt.
-    if (!running.current) {
-      start();
-      return;
-    }
-    // Round running but the lights are still on.
+  /**
+   * Clutch in. Starts the sequence; the lights do not begin until the player
+   * is actually holding, so nobody can set off the countdown and then get
+   * their finger ready at leisure.
+   */
+  const pressDown = useCallback(() => {
+    if (running.current) return; // already holding; key repeat lands here
+    start();
+  }, [start]);
+
+  /**
+   * Clutch out. This is the measured event.
+   *
+   * Reads the clock before anything else: a branch or a state read taken
+   * first is time charged to the player's reaction. Decides from refs only,
+   * never from `phase`, for the reason given where those refs are declared.
+   */
+  const release = useCallback(() => {
+    const now = performance.now();
+    if (!running.current) return; // not holding: nothing to release
     if (outAt.current === null) {
-      finish(jumpStart());
+      finish(jumpStart()); // let go while the lights were still on
       return;
     }
     finish(resultFor(Math.round(now - outAt.current), mode));
-  }, [finish, mode, start]);
+  }, [finish, mode]);
 
   const armed = phase === 'lighting' || phase === 'holding' || phase === 'out';
   const canReplay = mode === 'standalone';
@@ -169,21 +193,43 @@ export function LightsOut({
       <button
         type="button"
         className="lo-surface"
-        onPointerDown={press}
-        onKeyDown={(e) => {
-          // Space and Enter would otherwise fire click on key-UP, which adds
-          // the time the key was held to the reaction.
-          if (e.key === ' ' || e.key === 'Enter') {
-            e.preventDefault();
-            press();
-          }
+        onPointerDown={(e) => {
+          // Keep receiving this pointer even if the finger slides off the
+          // button. Without capture, a release outside the element never
+          // reaches us and the round hangs with the clutch still in.
+          e.currentTarget.setPointerCapture?.(e.pointerId);
+          pressDown();
         }}
+        onPointerUp={release}
+        // A cancelled pointer — a system gesture, a call arriving — is a
+        // release as far as the car is concerned. Better to score it than to
+        // leave the player holding a button that is no longer listening.
+        onPointerCancel={release}
+        onKeyDown={(e) => {
+          if (e.key !== ' ' && e.key !== 'Enter') return;
+          // Holding a key fires keydown repeatedly; only the first is a press.
+          if (e.repeat) {
+            e.preventDefault();
+            return;
+          }
+          // Space would otherwise also fire click on key-up and double-handle.
+          e.preventDefault();
+          pressDown();
+        }}
+        onKeyUp={(e) => {
+          if (e.key !== ' ' && e.key !== 'Enter') return;
+          e.preventDefault();
+          release();
+        }}
+        // Losing focus mid-hold (alt-tab) can swallow the keyup, which would
+        // leave the round running for ever.
+        onBlur={release}
         disabled={phase === 'done' && !canReplay}
       >
-        {phase === 'ready' ? <span className="lo-cue">Tap to start</span> : null}
-        {phase === 'lighting' ? <span className="lo-cue dim">Wait…</span> : null}
-        {phase === 'holding' ? <span className="lo-cue dim">Wait…</span> : null}
-        {phase === 'out' ? <span className="lo-cue go">GO</span> : null}
+        {phase === 'ready' ? <span className="lo-cue">Hold the clutch</span> : null}
+        {phase === 'lighting' ? <span className="lo-cue dim">Hold…</span> : null}
+        {phase === 'holding' ? <span className="lo-cue dim">Hold…</span> : null}
+        {phase === 'out' ? <span className="lo-cue go">RELEASE</span> : null}
         {phase === 'done' && result ? (
           <span className="lo-out">
             <span className="lo-time">{result.ms === null ? '—' : formatTime(result.ms)}</span>
@@ -207,7 +253,10 @@ export function LightsOut({
         ) : null}
 
         {phase === 'done' && canReplay ? (
-          <button type="button" className="lo-btn" onClick={start}>
+          // Resets to 'ready' rather than starting a round: the next round has
+          // to begin with the player pressing and holding, or they would be
+          // counted as having jumped a start they never began.
+          <button type="button" className="lo-btn" onClick={reset}>
             Try again
           </button>
         ) : null}
@@ -218,13 +267,15 @@ export function LightsOut({
 
         {!armed && phase !== 'done' ? (
           <span className="lo-hint">
-            Five lights, then they go out. Tap the moment they do. Going early is a jump start.
+            Press and hold. Five lights come on. Let go the instant they go out. Letting go
+            early is a jump start.
           </span>
         ) : null}
 
-        {phase === 'out' || phase === 'holding' || phase === 'lighting' ? (
+        {armed ? (
           <span className="lo-hint">
-            Hold. The lights go out between {HOLD_MIN_MS / 1000}s and 3s after the fifth.
+            Keep holding. They go out between {HOLD_MIN_MS / 1000}s and 3s after the fifth
+            light.
           </span>
         ) : null}
       </div>

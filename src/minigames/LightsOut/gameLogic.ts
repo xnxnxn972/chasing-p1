@@ -1,8 +1,17 @@
 /**
  * LIGHTS OUT — the logic, with no React in it.
  *
- * Five red lights come on a second apart, hold for an unpredictable moment,
- * then go out together. The clock starts when they go out.
+ * THE MECHANIC IS HOLD-AND-RELEASE, NOT TAP.
+ *
+ * A driver on the grid is already in first with the engine at pre-start revs,
+ * holding the clutch paddle in. Lights out is not a cue to press something; it
+ * is a cue to LET GO, dropping the clutch to its bite point. So the player
+ * holds a clutch button while the five lights come on, and the thing being
+ * measured is lights-out to release.
+ *
+ * That also makes anticipation fall out of the rules for free rather than
+ * needing to be detected: let go while the lights are still on and you have
+ * jumped the start, exactly as on a real grid.
  *
  * Everything here is pure so the interesting parts can be tested without
  * rendering anything: the component owns timers and DOM, this file owns what
@@ -25,12 +34,13 @@ export const HOLD_MAX_MS = 3000;
 /**
  * The FIA treats anything under 0.1s as a jump start, on the grounds that no
  * human reacts that fast — a driver who appears to has anticipated, not
- * reacted. Borrowing the real threshold means the cheat is caught by the same
- * rule that catches it on a real grid, rather than by a number picked here.
+ * reacted. Borrowing the real threshold means a lucky early release is caught
+ * by the same rule that catches it on a real grid, rather than by a number
+ * picked here.
  */
 export const JUMP_THRESHOLD_MS = 100;
 
-export type Band = 'jump' | 'lightning' | 'great' | 'good' | 'slow' | 'asleep';
+export type Band = 'jump' | 'lightning' | 'perfect' | 'decent' | 'slow' | 'asleep';
 
 export interface Rating {
   band: Band;
@@ -61,7 +71,7 @@ export function jumpStart(): Result {
     rating: {
       band: 'jump',
       label: 'Jump start',
-      note: 'You went before the lights did. On a real grid that is a five-second penalty.'
+      note: 'You dropped the clutch before the lights went out. That is a five-second penalty.'
     },
     boost: 0
   };
@@ -74,21 +84,21 @@ export function jumpStart(): Result {
  */
 export function rate(ms: number): Rating {
   if (ms < JUMP_THRESHOLD_MS) {
-    return { band: 'jump', label: 'Jump start', note: 'Nobody reacts that fast. You guessed.' };
+    return { band: 'jump', label: 'Jump start', note: 'Nobody lets go that fast. You guessed.' };
   }
-  if (ms < 200) {
-    return { band: 'lightning', label: 'Lightning', note: 'Quicker than most of the grid.' };
+  if (ms < 150) {
+    return { band: 'lightning', label: 'Lightning', note: 'Faster than the front row.' };
   }
-  if (ms < 250) {
-    return { band: 'great', label: 'Great start', note: 'Front-row reactions.' };
+  if (ms <= 220) {
+    return { band: 'perfect', label: 'Perfect reaction', note: 'Clutch dropped right on the bite point.' };
   }
-  if (ms < 320) {
-    return { band: 'good', label: 'Good start', note: 'You held your position.' };
+  if (ms <= 320) {
+    return { band: 'decent', label: 'Decent start', note: 'You held your position into turn one.' };
   }
-  if (ms < 450) {
-    return { band: 'slow', label: 'Slow getaway', note: 'Two cars came past before turn one.' };
+  if (ms <= 500) {
+    return { band: 'slow', label: 'Slow getaway', note: 'Two cars came past before the braking zone.' };
   }
-  return { band: 'asleep', label: 'Asleep', note: 'The pack is gone.' };
+  return { band: 'asleep', label: 'Sleeping on the grid', note: 'The pack is gone.' };
 }
 
 /**
@@ -104,9 +114,9 @@ export function rate(ms: number): Rating {
 export function boostFor(band: Band): number {
   switch (band) {
     case 'lightning':
+    case 'perfect':
       return 2;
-    case 'great':
-    case 'good':
+    case 'decent':
       return 1;
     default:
       return 0;

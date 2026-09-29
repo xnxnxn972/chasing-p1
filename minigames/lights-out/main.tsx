@@ -29,8 +29,8 @@ function Page() {
 
       <h1 className="mg-h1">Reaction Time Test</h1>
       <p className="mg-lede">
-        Five red lights come on, one per second. They hold. Then they go out, and the
-        clock starts. Tap the instant they do.
+        Hold the clutch. Five red lights come on, one per second. They hold. Then they go
+        out, and the clock starts. Let go the instant they do.
       </p>
 
       <LightsOut mode="standalone" />
@@ -43,10 +43,19 @@ function Page() {
           jump start, on the grounds that nobody reacts that quickly, so this test does
           the same.
         </p>
+        <h2>Why you hold instead of tap</h2>
         <p>
-          Your time here is mostly reaction, but a real getaway is clutch bite point,
-          wheelspin and where you are looking as well. The lights are only the part
-          everyone can practise.
+          A driver on the grid is already in first gear with the engine at pre-start revs,
+          holding the clutch paddle in. Lights out is not a signal to press something. It
+          is a signal to <strong>let go</strong>, dropping the clutch to its bite point
+          while feeding in the throttle. So this test measures a release, not a tap, and
+          letting go while the lights are still on is a jump start exactly as it would be
+          on a real grid.
+        </p>
+        <p>
+          The real thing is harder than this. A start is clutch bite point, wheelspin and
+          where you are looking, all at once. The lights are only the part everyone can
+          practise.
         </p>
       </div>
 
