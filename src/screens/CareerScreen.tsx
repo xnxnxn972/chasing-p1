@@ -1,7 +1,9 @@
 import { useRef } from 'react';
 import type { GameState } from '../game/types';
-import { applyGridStart, chooseDecisionOption, chooseOffer, continueStep, declineOffers } from '../game/careerEngine';
+import { applyMinigame, chooseDecisionOption, chooseOffer, continueStep, declineOffers } from '../game/careerEngine';
 import { LightsOut } from '../minigames/LightsOut/LightsOut';
+import { TrackRecall } from '../minigames/TrackRecall/TrackRecall';
+import { boostFor as recallBoost } from '../minigames/TrackRecall/recallScore';
 import { DriverCard } from '../components/DriverCard';
 import { CareerTable } from '../components/CareerTable';
 import { AchievementBadge, DecisionCard, NewsCard, OffersCard, ResultCard } from '../components/StepCard';
@@ -81,13 +83,23 @@ export function CareerScreen({
                   retry. The boost is applied when the player continues rather
                   than the instant they tap, so the result is on screen long
                   enough to read. */}
-              <LightsOut
-                mode="career"
-                onExit={() => onState(applyGridStart(state, lastBoost.current))}
-                onComplete={(r) => {
-                  lastBoost.current = r.boost;
-                }}
-              />
+              {pending.game === 'lights-out' ? (
+                <LightsOut
+                  mode="career"
+                  onExit={() => onState(applyMinigame(state, lastBoost.current))}
+                  onComplete={(r) => {
+                    lastBoost.current = r.boost;
+                  }}
+                />
+              ) : (
+                <TrackRecall
+                  mode="career"
+                  onExit={() => onState(applyMinigame(state, lastBoost.current))}
+                  onComplete={(score) => {
+                    lastBoost.current = recallBoost(score);
+                  }}
+                />
+              )}
             </section>
           ) : null}
 

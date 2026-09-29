@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CIRCUITS, type Circuit } from './circuits';
-import { matchScore, ratingFor, type Pt } from './recallScore';
+import { boostFor, matchScore, ratingFor, type Pt } from './recallScore';
 import { prepareRecallCard, shareRecallCard, type RecallShare } from './shareRecall';
 import { trackExtra, trackShare } from '../../game/telemetry';
 import './trackRecall.css';
@@ -26,13 +26,23 @@ const LAP_MS = 2600;
  *
  * The circuit is always named. The challenge is reproducing Suzuka, not
  * working out that it was Suzuka.
+ *
+ * One component, two contexts, as Lights Out does it:
+ *
+ *   mode="career"      one attempt, no retry, no share, hands back a
+ *                      Qualifying boost. A "try again" here would turn a beat
+ *                      in somebody's career into an arcade they never leave.
+ *   mode="standalone"  retry forever, keeps a personal best, offers the card.
  */
 export function TrackRecall({
   mode,
-  onComplete
+  onComplete,
+  onExit
 }: {
   mode: 'career' | 'standalone';
   onComplete?: (score: number) => void;
+  /** Career only: leave the game. Standalone has its own replay buttons. */
+  onExit?: () => void;
 }) {
   const [circuit, setCircuit] = useState<Circuit>(() => pick());
   const [phase, setPhase] = useState<Phase>('ready');
@@ -369,6 +379,18 @@ export function TrackRecall({
           <span className="tr-note">{rating.note}</span>
           <span className="tr-fact">{circuit.fact}</span>
 
+          {/* What it was worth. Only in a career: standalone has no stats to
+              move, and the percentage is already the result there. */}
+          {mode === 'career' ? (
+            boostFor(score) > 0 ? (
+              <span className="tr-boost">
+                +{boostFor(score)} Qualifying — you know where this lap goes
+              </span>
+            ) : (
+              <span className="tr-boost tr-boost-zero">No bonus this time</span>
+            )
+          ) : null}
+
           {/*
             With the result, not down in the footer with the replay buttons.
             It was there first, and on a phone three buttons plus the personal
@@ -423,6 +445,12 @@ export function TrackRecall({
           </button>
         ) : null}
 
+        {phase === 'result' && mode === 'career' ? (
+          <button type="button" className="tr-btn" onClick={() => onExit?.()}>
+            Continue career →
+          </button>
+        ) : null}
+
         {phase === 'result' && mode === 'standalone' ? (
           <>
             <button type="button" className="tr-btn" onClick={() => again(false)}>
@@ -439,7 +467,11 @@ export function TrackRecall({
         ) : null}
 
         {phase === 'ready' ? (
-          <span className="tr-hint">One attempt. The clock does not stop.</span>
+          <span className="tr-hint">
+            {mode === 'career'
+              ? 'One attempt. The clock does not stop.'
+              : 'The clock does not stop. Play as often as you like.'}
+          </span>
         ) : null}
       </div>
     </div>

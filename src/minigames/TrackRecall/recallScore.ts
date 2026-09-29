@@ -198,3 +198,22 @@ export function ratingFor(score: number, circuitName: string): Rating {
   }
   return { label: "Are you sure you've raced here?", note: 'That is a different circuit.', good: false };
 }
+
+/**
+ * Qualifying awarded in career mode.
+ *
+ * Deliberately tiny, and on the same scale as the Lights Out boost. Driver
+ * stats run 0-100 and a whole season of development moves them by a few
+ * points, so anything worth +5 would make a minigame a better way to build a
+ * driver than racing, which is the opposite of the point.
+ *
+ * The thresholds are higher than the rating bands look, because the score is
+ * forgiving by design: a shaky but recognisable trace already scores in the
+ * eighties. +2 needs a drawing that is genuinely the right shape. If this
+ * ever needs retuning, retune it here: nothing else knows the numbers.
+ */
+export function boostFor(score: number): number {
+  if (score >= 90) return 2;
+  if (score >= 70) return 1;
+  return 0;
+}

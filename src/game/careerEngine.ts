@@ -78,9 +78,9 @@ export function createCareer(setup: CareerSetup): GameState {
     seed: setup.seed,
     year: START_YEAR,
     cursor: 'contract',
-    // Which season the grid start belongs to. Drawn here, from the career's
-    // own seed, so the same seed always produces the same career.
-    gridStartSeason: GRID_START_FIRST + Math.floor(rng.next() * GRID_START_SPREAD),
+    // Which seasons the two minigames belong to. Drawn here, from the
+    // career's own seed, so the same seed always produces the same career.
+    ...minigameSeasons(rng),
     rngState: rng.snapshot(),
     player: {
       name: setup.name,
@@ -277,60 +277,113 @@ export const GRID_START_FIRST = 2;
 export const GRID_START_SPREAD = 6; // seasons 2..7
 
 /**
- * A decision slot, or the grid start in its place.
+ * And the same for the track walk, which is Track Recall.
  *
- * Fires at the first eligible slot AT OR AFTER the scheduled one, rather than
- * exactly on it, so a reserve year landing on the target postpones the grid
- * start instead of cancelling it.
- *
- * Reserve years are skipped: a driver who is not racing has no start to make,
- * and being handed one while sitting out would read as a bug.
+ * A season LATER on average than the grid start, and drawn separately, for
+ * two reasons. A career that ends after three seasons should meet the shorter,
+ * louder one first. And the two are pulled apart explicitly below, because
+ * two minigames in the same season would read as the game having stopped
+ * being a career and started being an arcade.
  */
-function decisionOrGridStart(
+export const TRACK_WALK_FIRST = 3;
+export const TRACK_WALK_SPREAD = 6; // seasons 3..8
+
+/**
+ * Both slots for one career, guaranteed to be different seasons.
+ *
+ * The two are drawn independently and then separated rather than being drawn
+ * from disjoint ranges, because the ranges overlap on purpose: either can come
+ * first. Pushing the track walk back by one when they collide keeps it inside
+ * the same early-career window and costs nothing, since the slot fires at the
+ * first eligible season at or after it anyway.
+ */
+function minigameSeasons(rng: Rng): { gridStartSeason: number; trackWalkSeason: number } {
+  const gridStartSeason = GRID_START_FIRST + Math.floor(rng.next() * GRID_START_SPREAD);
+  let trackWalkSeason = TRACK_WALK_FIRST + Math.floor(rng.next() * TRACK_WALK_SPREAD);
+  if (trackWalkSeason === gridStartSeason) trackWalkSeason += 1;
+  return { gridStartSeason, trackWalkSeason };
+}
+
+/**
+ * A decision slot, or a minigame in its place.
+ *
+ * Fires at the first eligible slot AT OR AFTER the scheduled season, rather
+ * than exactly on it, so a reserve year landing on the target postpones the
+ * minigame instead of cancelling it.
+ *
+ * Reserve years are skipped for both: a driver who is not racing has no start
+ * to make and no circuit to learn, and being handed either while sitting out
+ * would read as a bug.
+ *
+ * At most ONE A SEASON. They are scheduled into different seasons, but either
+ * can be postponed by a reserve year and catch the other up — which put both
+ * into one season in 4.5% of careers, at different slots, and two minigames a
+ * year stops reading as a career.
+ */
+function decisionOrMinigame(
   state: GameState,
   rng: Rng,
   slot: 'preseason' | 'midseason' | 'offseason'
 ): PendingStep | null {
   // Seasons completed, so season one is 0. `decisionsUsed` cannot be used
   // here: openSeason resets it every year.
-  const due = state.history.length + 1 >= (state.gridStartSeason ?? Infinity);
-  if (!state.gridStartUsed && !state.reserveTeamId && due) {
-    state.gridStartUsed = true;
-    return {
-      kind: 'minigame',
-      game: 'lights-out',
-      tag: 'Race day',
-      title: 'Lights out',
-      body: 'Hold the clutch. Let go the moment the lights go out.'
-    };
+  const season = state.history.length + 1;
+  const free = !state.reserveTeamId && season !== state.lastMinigameSeason;
+  if (free) {
+    if (!state.gridStartUsed && season >= (state.gridStartSeason ?? Infinity)) {
+      state.gridStartUsed = true;
+      state.lastMinigameSeason = season;
+      return {
+        kind: 'minigame',
+        game: 'lights-out',
+        stat: 'racecraft',
+        tag: 'Race day',
+        title: 'Lights out',
+        body: 'Hold the clutch. Let go the moment the lights go out.'
+      };
+    }
+    if (!state.trackWalkUsed && season >= (state.trackWalkSeason ?? Infinity)) {
+      state.trackWalkUsed = true;
+      state.lastMinigameSeason = season;
+      return {
+        kind: 'minigame',
+        game: 'track-recall',
+        stat: 'qualifying',
+        tag: 'Thursday',
+        title: 'Track walk',
+        body: 'Learn the circuit, then draw it from memory.'
+      };
+    }
   }
   return nextDecision(state, rng, slot);
 }
 
-/** Hard ceiling on Racecraft from starts, so a career cannot be farmed. */
+/** Hard ceiling on a stat earned from a minigame, so a career cannot be farmed. */
 export const RACECRAFT_CAP = 100;
 
 /**
- * Apply a grid start and carry on with the season.
+ * Apply a minigame result and carry on with the season.
  *
- * Called by the UI when the minigame reports a result. The boost is decided
- * by the minigame, not here, and it is clamped: stats are a 0-100 scale and
- * nothing else in the game moves one by more than a couple of points a year.
+ * Called by the UI when the minigame reports one. The boost is decided by the
+ * minigame and the stat by the pending step, not here, and the result is
+ * clamped: stats are a 0-100 scale and nothing else in the game moves one by
+ * more than a couple of points a year.
  *
  * Advancing the cursor here is what makes one attempt mean one attempt. The
  * stage is left behind before the next step runs, so there is no path back
  * into it this season.
  */
-export function applyGridStart(state: GameState, boost: number): GameState {
+export function applyMinigame(state: GameState, boost: number): GameState {
   const next = clone(state);
+  const stat = next.pending?.kind === 'minigame' ? next.pending.stat : null;
   next.pending = null;
-  if (boost > 0) {
-    next.player.stats.racecraft = Math.min(RACECRAFT_CAP, next.player.stats.racecraft + boost);
+  if (stat && boost > 0) {
+    next.player.stats[stat] = Math.min(RACECRAFT_CAP, next.player.stats[stat] + boost);
   }
   // It stood in for a decision, so it leaves the season in the state a decision
   // would have: cursor advanced past the slot it occupied. Without this the
   // step machine would re-enter the same slot and could ask the question the
-  // grid start replaced.
+  // minigame replaced.
   next.cursor = advanceCursor(next.cursor);
   return step(next);
 }
@@ -347,14 +400,14 @@ function step(state: GameState): GameState {
       }
       case 'preseason': {
         if (canDecide(state) && rng.chance(0.36)) {
-          state.pending = decisionOrGridStart(state, rng, 'preseason');
+          state.pending = decisionOrMinigame(state, rng, 'preseason');
         }
         if (!state.pending) state.cursor = 'midseason';
         break;
       }
       case 'midseason': {
         if (canDecide(state) && rng.chance(0.47)) {
-          state.pending = decisionOrGridStart(state, rng, 'midseason');
+          state.pending = decisionOrMinigame(state, rng, 'midseason');
         }
         if (!state.pending) state.cursor = 'race';
         break;
@@ -366,7 +419,7 @@ function step(state: GameState): GameState {
       }
       case 'offseason': {
         if (canDecide(state) && rng.chance(0.4)) {
-          state.pending = decisionOrGridStart(state, rng, 'offseason');
+          state.pending = decisionOrMinigame(state, rng, 'offseason');
         }
         if (!state.pending) state.cursor = 'advance';
         break;

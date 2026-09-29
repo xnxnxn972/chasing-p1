@@ -235,6 +235,19 @@
   border: 1px solid var(--lime, #c8ff00);
 }
 
+.tr-boost {
+  margin-top: 4px;
+  font-family: var(--display, 'Barlow Condensed', sans-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 13px;
+  color: var(--lime, #c8ff00);
+}
+
+.tr-boost-zero {
+  color: var(--text-faint, #545d69);
+}
+
 /*
  * The share button sits with the result rather than in the footer, so it is
  * styled to belong to the result: white on a dark pill, wide enough to read

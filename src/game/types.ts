@@ -246,21 +246,26 @@ export interface PendingNews {
 }
 
 /**
- * The grid start. A ten-second break in the story where the player does
- * something with their hands instead of choosing from a list.
+ * A minigame: a short break in the story where the player does something with
+ * their hands instead of choosing from a list.
  *
  * It TAKES THE PLACE OF A DECISION rather than being an extra step, so a
  * career is not made longer by it — one of the questions it would have asked
- * is a grid start instead. That is also why it advances the season exactly
+ * is the minigame instead. That is also why it advances the season exactly
  * as choosing a decision option does.
  *
  * It carries no options and no text to read: the component owns the whole
- * interaction and hands back a Racecraft boost. One attempt, which is why
- * there is no retry anywhere in this type.
+ * interaction and hands back a boost. One attempt, which is why there is no
+ * retry anywhere in this type.
+ *
+ * `stat` is here rather than in the engine because it belongs to the game:
+ * the grid start is Racecraft, the track walk is Qualifying. Keeping them on
+ * separate stats also means two minigames cannot be farmed into one number.
  */
 export interface PendingMinigame {
   kind: 'minigame';
-  game: 'lights-out';
+  game: 'lights-out' | 'track-recall';
+  stat: keyof DriverStats;
   tag: string;
   title: string;
   body: string;
@@ -360,6 +365,22 @@ export interface GameState {
    * career total. Using it here fired in 9% of careers.
    */
   gridStartSeason?: number;
+  /**
+   * The same pair for Track Recall, scheduled the same way and on its own
+   * season so a career does not get both minigames in one year.
+   */
+  trackWalkUsed?: boolean;
+  trackWalkSeason?: number;
+  /**
+   * The season a minigame last took a decision slot, so the other one cannot
+   * also fire that year.
+   *
+   * The two are scheduled into different seasons, but either can be postponed
+   * by a reserve year and catch the other up. Without this, 4.5% of careers
+   * got both in one season — at different slots, so it read as the game
+   * having stopped being a career and started being an arcade.
+   */
+  lastMinigameSeason?: number;
   log: string[];
   /** Set while the player is an F1 reserve rather than a race driver. */
   reserveTeamId?: F1TeamId;
