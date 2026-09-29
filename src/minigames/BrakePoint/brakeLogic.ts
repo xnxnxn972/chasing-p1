@@ -19,17 +19,18 @@
 /**
  * Deceleration under full braking, m/s².
  *
- * 26 m/s² is about 2.65g. Modern F1 peaks far higher on initial bite, nearer
- * 4-5g, but peak is not what governs a whole braking zone: the car cannot hold
- * it once speed and the downforce that made it possible start bleeding away.
- * A sustained average nearer 2.6g is the more honest figure anyway.
+ * 20 m/s², about 2g. This is the one number in the file that is a playability
+ * choice rather than a physical one, and it is worth saying so plainly: real
+ * Formula 1 brakes harder than this. Peak bite is nearer 4-5g and a sustained
+ * zone is nearer 2.6g.
  *
- * Lowered from 3.3g after playtesting. A softer car brakes from further out
- * and spends longer doing it, which is most of the extra room the game needed:
- * the pedal is down for well over two seconds, so turning in is a moment you
- * arrive at rather than one you have to catch.
+ * It went 3.3 -> 2.65 -> 2.0 over two rounds of playtesting, because a softer
+ * car is the cheapest way to buy the player time: less deceleration means the
+ * braking point is further out AND the pedal is down for longer, so turning in
+ * becomes a moment you arrive at instead of one you have to catch. Everything
+ * else in this file stays honest; this is the dial that was traded.
  */
-export const DECEL = 26;
+export const DECEL = 20;
 
 const KMH = 1 / 3.6;
 
@@ -48,41 +49,53 @@ export interface Corner {
 }
 
 /**
- * Three corners: a big obvious stop, then a hairpin, then a fast corner.
+ * Three corners, all of which brake at the 100 board.
  *
- * Speeds came down and run-ups went up after playtesting. The run-up is the
- * quieter of the two changes and possibly the more important one: it is the
- * seconds you get to read the boards and commit before anything is being
- * asked of you, and at the old lengths the corner arrived while you were still
- * working out where you were.
+ * THIS IS THE FIX FOR "TOO HARD", AND IT IS NOT A TOLERANCE CHANGE.
+ *
+ * The braking point used to be 114m on the chicane, with boards at 150, 100
+ * and 50 — so the player had to judge a third of the way through the 150-to-100
+ * gap, which is crossed in about six tenths of a second. There was no reference
+ * AT the point they were being asked to find. Real drivers do not interpolate
+ * between boards at 250km/h; they pick a marker and brake at it, and that is
+ * the whole technique.
+ *
+ * So the entry speeds are now chosen so that (v0² - vc²) / 2a comes out at 100
+ * metres for all three corners. The physics is untouched — the speeds were
+ * solved backwards from it — and the player gets a reference they can actually
+ * aim at. The result screen revealing "ideal 100m" teaches it in one attempt.
+ *
+ * The corners stay different because the braking PHASE differs: 2.2s of pedal
+ * at the chicane against 1.7s at the fast right, where the apex speed is high
+ * and the window to release into is much narrower.
  */
 export const CORNERS: Corner[] = [
   {
     id: 'chicane',
     name: 'Turn 1',
     label: 'Chicane',
-    entryKmh: 290,
+    entryKmh: 243,
     apexKmh: 85,
     runUpM: 430,
-    note: 'The longest braking zone on the calendar. Everything happens slowly enough to think.'
+    note: 'A long, heavy stop. Everything happens slowly enough to think about it.'
   },
   {
     id: 'hairpin',
     name: 'Turn 6',
     label: 'Hairpin',
-    entryKmh: 265,
+    entryKmh: 253,
     apexKmh: 110,
-    runUpM: 390,
-    note: 'Less speed to shed, so less room to be wrong in.'
+    runUpM: 440,
+    note: 'Same reference, less time on the pedal.'
   },
   {
     id: 'fast',
     name: 'Turn 9',
     label: 'Fast right',
-    entryKmh: 250,
-    apexKmh: 180,
-    runUpM: 350,
-    note: 'Barely a braking zone at all. Nerve matters more than the boards here.'
+    entryKmh: 273,
+    apexKmh: 150,
+    runUpM: 460,
+    note: 'Quickest of the three, and the smallest window to turn into.'
   }
 ];
 
@@ -139,10 +152,10 @@ export interface Verdict {
  * The windows are deliberately generous. Being on the limit should feel like
  * nerve, not like winning a coin toss.
  */
-export const LIMIT_S = 0.13; // either side: on the limit
-export const GOOD_S = 0.38; // early: tidy
-export const SAFE_S = 0.8; // early: safe and slow
-export const LOCKUP_S = 0.32; // later than this and the corner is gone
+export const LIMIT_S = 0.25; // either side: on the limit
+export const GOOD_S = 0.55; // early: tidy
+export const SAFE_S = 1.2; // early: safe and slow
+export const LOCKUP_S = 0.65; // later than this and the corner is gone
 
 /**
  * Score the braking point.
@@ -185,7 +198,7 @@ export function scoreBraking(c: Corner, brakeAtM: number): Verdict {
 function lateScore(lateS: number): number {
   if (lateS <= LIMIT_S) return 99 - (19 * lateS) / LIMIT_S;
   if (lateS <= LOCKUP_S) return 80 - (45 * (lateS - LIMIT_S)) / (LOCKUP_S - LIMIT_S);
-  return 35 - (35 * (lateS - LOCKUP_S)) / 0.22;
+  return 35 - (35 * (lateS - LOCKUP_S)) / 0.45;
 }
 
 function bandFor(errorS: number): { band: Band; label: string; note: string } {
