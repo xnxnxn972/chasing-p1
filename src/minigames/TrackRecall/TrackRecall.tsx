@@ -75,7 +75,7 @@ export function TrackRecall({
 
   // ---- rendering -----------------------------------------------------------
   const paint = useCallback(
-    (opts: { outline?: boolean; lapT?: number; ink?: boolean; ghost?: boolean }) => {
+    (opts: { outline?: boolean; lapT?: number; ink?: boolean; ghost?: boolean; compare?: boolean }) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -97,6 +97,31 @@ export function TrackRecall({
       const ox = (w - 100 * s) / 2;
       const oy = (h - 100 * s) / 2;
       const P = (p: Pt): Pt => [ox + p[0] * s, oy + p[1] * s];
+
+      /**
+       * The result: the real circuit beside what they drew.
+       *
+       * Side by side rather than overlaid. Superimposing the two looks like
+       * a correctness check and buries whichever line is underneath; two
+       * panels let you see what you actually remembered, which is the part
+       * worth looking at.
+       *
+       * Each is fitted to its own half, so a good drawing at the wrong size
+       * or in the wrong corner still lines up visually — the same things the
+       * score already ignores.
+       */
+      if (opts.compare) {
+        const ink = strokes.current.flat();
+        panel(ctx, 0, 0, w / 2, h, circuit.points, '#c8ff00', 'The circuit');
+        ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(w / 2 + 0.5, h * 0.12);
+        ctx.lineTo(w / 2 + 0.5, h * 0.88);
+        ctx.stroke();
+        panel(ctx, w / 2, 0, w / 2, h, ink, '#f3f6f8', 'Yours', false);
+        return;
+      }
 
       if (opts.ghost) {
         trace(ctx, circuit.points.map(P), 'rgba(200,255,0,0.28)', 2.5);
@@ -129,7 +154,7 @@ export function TrackRecall({
     if (phase === 'ready') paint({ outline: false });
     if (phase === 'study') paint({ outline: true });
     if (phase === 'draw') paint({ ink: true });
-    if (phase === 'result') paint({ ghost: true, ink: true });
+    if (phase === 'result') paint({ compare: true });
   }, [phase, paint]);
 
   // ---- the run -------------------------------------------------------------
@@ -285,18 +310,23 @@ export function TrackRecall({
           <div className="tr-hint-mid">Draw {circuit.name} from memory</div>
         ) : null}
 
-        {phase === 'result' ? (
-          <div className="tr-overlay tr-result">
+      </div>
+
+      {/* Under the comparison, not over it: the whole point of the result is
+          seeing the two shapes, and an overlay would cover them. */}
+      {phase === 'result' ? (
+        <div className="tr-result">
+          <div className="tr-result-top">
             <span className="tr-score">
               {score}
               <small>%</small>
             </span>
             <span className={`tr-rating${rating.good ? ' good' : ''}`}>{rating.label}</span>
-            <span className="tr-note">{rating.note}</span>
-            <span className="tr-fact">{circuit.fact}</span>
           </div>
-        ) : null}
-      </div>
+          <span className="tr-note">{rating.note}</span>
+          <span className="tr-fact">{circuit.fact}</span>
+        </div>
+      ) : null}
 
       <div className="tr-foot">
         {phase === 'ready' ? (
@@ -338,6 +368,50 @@ export function TrackRecall({
 function pick(not?: string): Circuit {
   const pool = not ? CIRCUITS.filter((c) => c.id !== not) : CIRCUITS;
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/**
+ * One half of the comparison: a loop fitted to its box with a caption.
+ *
+ * The drawing is NOT closed, because the player's line is whatever they drew
+ * and joining its ends would invent a stroke they did not make.
+ */
+function panel(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  pts: Pt[],
+  colour: string,
+  label: string,
+  close = true
+) {
+  ctx.save();
+  ctx.font = '600 11px "Barlow Condensed", system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(153,163,175,0.85)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(label.toUpperCase(), x + w / 2, y + h - 14);
+
+  if (pts.length >= 2) {
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const pw = Math.max(1e-6, Math.max(...xs) - minX);
+    const ph = Math.max(1e-6, Math.max(...ys) - minY);
+    const pad = 0.16;
+    const s = Math.min((w * (1 - pad)) / pw, (h * (1 - pad) - 22) / ph);
+    const ox = x + (w - pw * s) / 2;
+    const oy = y + (h - 22 - ph * s) / 2;
+    trace(ctx, pts.map((p) => [ox + (p[0] - minX) * s, oy + (p[1] - minY) * s] as Pt), colour, 2.6, close);
+  } else {
+    ctx.fillStyle = 'rgba(84,93,105,0.9)';
+    ctx.font = '400 12px Inter, system-ui, sans-serif';
+    ctx.fillText('nothing drawn', x + w / 2, y + h / 2);
+  }
+  ctx.restore();
 }
 
 function trace(
