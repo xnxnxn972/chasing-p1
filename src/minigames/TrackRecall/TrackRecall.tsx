@@ -368,6 +368,45 @@ export function TrackRecall({
           </div>
           <span className="tr-note">{rating.note}</span>
           <span className="tr-fact">{circuit.fact}</span>
+
+          {/*
+            With the result, not down in the footer with the replay buttons.
+            It was there first, and on a phone three buttons plus the personal
+            best do not fit one row, so it wrapped underneath two lime buttons
+            that read as "the buttons" and went unnoticed.
+
+            Standalone only: inside a career this is one beat in somebody's
+            story, and a share button there invites them to leave it.
+          */}
+          {mode === 'standalone' && hasInk ? (
+            <button
+              type="button"
+              className="tr-share"
+              disabled={sharing}
+              onClick={async () => {
+                const payload = shareable.current;
+                if (sharing || !payload) return;
+                setSharing(true);
+                try {
+                  // Whatever finish() managed to build. Passing nothing makes
+                  // shareRecallCard render on demand, which is the slow path
+                  // this is all arranged to avoid.
+                  const trace = await shareRecallCard(payload, prepared.current ?? undefined);
+                  trackShare(trace.result);
+                  trackExtra('share_game', 'track-recall');
+                  trackExtra('share_path', trace.path);
+                  trackExtra('share_circuit', payload.circuit.id);
+                  trackExtra('share_score', payload.score);
+                  trackExtra('share_render_ms', trace.renderMs);
+                  trackExtra('share_sheet_ms', trace.sheetMs);
+                } finally {
+                  setSharing(false);
+                }
+              }}
+            >
+              {sharing ? 'Sharing…' : 'Share both drawings'}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -393,38 +432,6 @@ export function TrackRecall({
               Another circuit
             </button>
           </>
-        ) : null}
-
-        {/* Standalone only. Inside a career this is one beat in somebody's
-            story, and a share button there invites them to leave it. */}
-        {phase === 'result' && mode === 'standalone' && hasInk ? (
-          <button
-            type="button"
-            className="tr-btn tr-btn-share"
-            disabled={sharing}
-            onClick={async () => {
-              const payload = shareable.current;
-              if (sharing || !payload) return;
-              setSharing(true);
-              try {
-                // Whatever finish() managed to build. Passing nothing makes
-                // shareRecallCard render on demand, which is the slow path
-                // this is all arranged to avoid.
-                const trace = await shareRecallCard(payload, prepared.current ?? undefined);
-                trackShare(trace.result);
-                trackExtra('share_game', 'track-recall');
-                trackExtra('share_path', trace.path);
-                trackExtra('share_circuit', payload.circuit.id);
-                trackExtra('share_score', payload.score);
-                trackExtra('share_render_ms', trace.renderMs);
-                trackExtra('share_sheet_ms', trace.sheetMs);
-              } finally {
-                setSharing(false);
-              }
-            }}
-          >
-            {sharing ? 'Sharing…' : 'Share it'}
-          </button>
         ) : null}
 
         {mode === 'standalone' && best !== null ? (

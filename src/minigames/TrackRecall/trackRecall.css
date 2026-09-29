@@ -235,15 +235,30 @@
   border: 1px solid var(--lime, #c8ff00);
 }
 
-/* White rather than lime: the two replay buttons are lime, and a third lime
-   button in the row would read as a third way of playing again. */
-.tr-btn-share {
-  background: transparent;
+/*
+ * The share button sits with the result rather than in the footer, so it is
+ * styled to belong to the result: white on a dark pill, wide enough to read
+ * as its own thing, and not lime — the two replay buttons are lime, and a
+ * third lime button would read as a third way of playing again.
+ */
+.tr-share {
+  appearance: none;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: rgba(243, 246, 248, 0.06);
   color: var(--text, #f3f6f8);
-  border: 1px solid rgba(243, 246, 248, 0.45);
+  border: 1px solid rgba(243, 246, 248, 0.42);
+  font-family: var(--display, 'Barlow Condensed', sans-serif);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-size: 15px;
+  padding: 10px 22px;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
-.tr-btn-share:disabled {
+.tr-share:disabled {
   opacity: 0.55;
   cursor: default;
 }
