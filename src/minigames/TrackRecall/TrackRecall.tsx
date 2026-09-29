@@ -93,9 +93,7 @@ export function TrackRecall({
       ctx.fillStyle = '#070b0f';
       ctx.fillRect(0, 0, w, h);
 
-      const s = Math.min(w, h) / 100;
-      const ox = (w - 100 * s) / 2;
-      const oy = (h - 100 * s) / 2;
+      const { s, ox, oy } = view(w, h, circuit);
       const P = (p: Pt): Pt => [ox + p[0] * s, oy + p[1] * s];
 
       /**
@@ -196,12 +194,14 @@ export function TrackRecall({
             window.setTimeout(() => setRemaining(Math.ceil(DRAW_MS / 1000) - s), s * 1000)
           );
         }
-        timers.current.push(window.setTimeout(() => finish(), DRAW_MS));
+        // Through the ref, not the closure. `start` is memoised, so the
+        // `finish` it captured is the one from the render that created it —
+        // which on first load is the render before the stored personal best
+        // has been read, and that version happily overwrote a 100% best with
+        // whatever the round scored.
+        timers.current.push(window.setTimeout(() => finishRef.current(), DRAW_MS));
       }, STUDY_MS + LAP_MS + 400)
     );
-    // `finish` is stable for the life of a run; re-adding it here would
-    // restart the timers on every stroke.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearTimers, paint]);
 
   const finish = useCallback(() => {
@@ -222,6 +222,10 @@ export function TrackRecall({
     onComplete?.(s);
   }, [best, circuit, clearTimers, mode, onComplete]);
 
+  /** Always the current `finish`, for the draw timer to call. */
+  const finishRef = useRef(finish);
+  finishRef.current = finish;
+
   const again = useCallback(
     (newCircuit: boolean) => {
       clearTimers();
@@ -235,11 +239,8 @@ export function TrackRecall({
 
   // ---- drawing input -------------------------------------------------------
   const toLocal = (e: React.PointerEvent<HTMLCanvasElement>): Pt => {
-    const c = e.currentTarget;
-    const r = c.getBoundingClientRect();
-    const s = Math.min(r.width, r.height) / 100;
-    const ox = (r.width - 100 * s) / 2;
-    const oy = (r.height - 100 * s) / 2;
+    const r = e.currentTarget.getBoundingClientRect();
+    const { s, ox, oy } = view(r.width, r.height, circuit);
     return [(e.clientX - r.left - ox) / s, (e.clientY - r.top - oy) / s];
   };
 
@@ -364,8 +365,42 @@ export function TrackRecall({
   );
 }
 
-/** A circuit other than the one just played, so "another" always changes it. */
+/**
+ * Canvas mapping for the 0-100 circuit space.
+ *
+ * Scaled to the CIRCUIT'S OWN bounding box rather than the 0-100 box, because
+ * every one of these is markedly landscape and sits in a band across the
+ * middle of that box. Fitting the box instead left a third of a wide stage
+ * empty and shrank the circuit to match — which mattered most for Suzuka,
+ * where the figure-of-eight crossing is the whole point and was collapsing
+ * into a smudge.
+ *
+ * paint() and toLocal() must agree on this, or a drawn line lands somewhere
+ * other than under the finger.
+ */
+function view(w: number, h: number, c: Circuit) {
+  const xs = c.points.map((p) => p[0]);
+  const ys = c.points.map((p) => p[1]);
+  const x0 = Math.min(...xs);
+  const y0 = Math.min(...ys);
+  const bw = Math.max(...xs) - x0;
+  const bh = Math.max(...ys) - y0;
+  const s = Math.min((w * 0.92) / bw, (h * 0.92) / bh);
+  return { s, ox: (w - bw * s) / 2 - x0 * s, oy: (h - bh * s) / 2 - y0 * s };
+}
+
+/**
+ * A circuit other than the one just played, so "another" always changes it.
+ *
+ * `?circuit=suzuka` pins the first one, which is the only way to look at a
+ * particular shape without reloading until it comes up.
+ */
 function pick(not?: string): Circuit {
+  if (!not && typeof window !== 'undefined') {
+    const want = new URLSearchParams(window.location.search).get('circuit');
+    const forced = want && CIRCUITS.find((c) => c.id === want);
+    if (forced) return forced;
+  }
   const pool = not ? CIRCUITS.filter((c) => c.id !== not) : CIRCUITS;
   return pool[Math.floor(Math.random() * pool.length)];
 }

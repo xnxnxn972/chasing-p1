@@ -46,8 +46,25 @@ const VENUES = [
    * recognise one. Angles picked by rendering candidates against the
    * reference maps.
    */
-  { id: 'suzuka', file: 'RaceCircuitSuzuka.svg', name: 'Suzuka', country: 'Japan',
-    start: [0.80, 0.12], clockwise: true, rotate: 65,
+  /**
+   * Suzuka is the one figure-of-eight, and the only one of these files that
+   * needs help. It also carries the PIT LANE in grey at 4px and two short
+   * black service stubs; `stroke` drops the grey, and taking the longest
+   * remaining path drops the stubs. Without either the lap comes out with a
+   * spur down the pit lane.
+   *
+   * What is left is the whole lap as ONE already-closed path, crossover
+   * included, which is why this file works where the earlier two-loop one
+   * had to be chained and came out misshapen.
+   *
+   * Verified by walking the path: it starts at the top-left end of the main
+   * straight and runs right, the pit lane sits alongside it, and the lap
+   * crosses itself once, at 45% and again at 86% - the Degner-to-hairpin
+   * section over the back straight. `start` puts the grid a third of the way
+   * along that straight, which is where the line actually is.
+   */
+  { id: 'suzuka', file: 'Suzuka_Circuit_2013_001.svg', name: 'Suzuka', country: 'Japan',
+    stroke: '#000000', start: [0.70, 0.00], clockwise: true,
     fact: 'The only figure-of-eight on the calendar: the back straight crosses the first sector on a bridge.' },
 
   { id: 'spa', file: 'RaceCircuitSpa.svg', name: 'Spa-Francorchamps', country: 'Belgium',
@@ -258,11 +275,24 @@ const report = [];
 
 for (const v of VENUES) {
   const svg = readFileSync(`${DIR}/${v.file}`, 'utf8');
-  const ds = [...svg.matchAll(/<path\b[^>]*\sd="([^"]+)"/g)].map((m) => m[1]);
+  let tags = [...svg.matchAll(/<path\b[^>]*>/g)].map((m) => m[0]);
+  // Some files ship the pit lane, or marker stubs, alongside the circuit.
+  // Filtering on the track's own stroke colour is the only reliable way to
+  // tell them apart.
+  if (v.stroke) tags = tags.filter((t) => t.includes(`stroke="${v.stroke}"`));
+  const ds = tags.map((t) => t.match(/\sd="([^"]+)"/)?.[1]).filter(Boolean);
   if (!ds.length) throw new Error(`${v.id}: no <path d>`);
 
   const pieces = ds.map(parsePath).filter((p) => p.length > 1);
-  let pts = pieces.length > 1 ? chain(pieces) : pieces[0];
+  // An already-closed path IS the lap. Prefer it over chaining, which would
+  // otherwise splice on whatever short marker stubs sit beside it.
+  const longest = pieces.reduce((a, b) => (b.length > a.length ? b : a));
+  const isClosed =
+    Math.hypot(
+      longest[0][0] - longest[longest.length - 1][0],
+      longest[0][1] - longest[longest.length - 1][1]
+    ) < 2;
+  let pts = isClosed ? longest : pieces.length > 1 ? chain(pieces) : pieces[0];
   if (v.rotate) {
     const r = (v.rotate * Math.PI) / 180;
     const c = Math.cos(r);
@@ -292,7 +322,7 @@ for (const v of VENUES) {
   pts = [...pts.slice(si), ...pts.slice(0, si)];
 
   const rounded = pts.map((p) => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]);
-  report.push(`${v.id}: ${ds.length} path(s), ${eight ? 'figure-8, orientation left as drawn' : (area > 0) === v.clockwise ? 'already ' : 'reversed to '}${v.clockwise ? 'clockwise' : 'anti-clockwise'}, start at [${rounded[0]}]`);
+  report.push(`${v.id}: ${ds.length} path(s), ${eight ? 'figure-8, orientation left as drawn' : ((area > 0) === v.clockwise ? 'already ' : 'reversed to ') + (v.clockwise ? 'clockwise' : 'anti-clockwise')}, start at [${rounded[0]}]`);
 
   out += `  {\n    id: '${v.id}',\n    name: '${v.name}',\n    country: '${v.country}',\n`;
   out += `    clockwise: ${v.clockwise},\n    fact: '${v.fact.replace(/'/g, "\\'")}',\n    points: [\n`;
