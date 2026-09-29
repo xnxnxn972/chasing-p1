@@ -86,21 +86,41 @@ export async function renderTimeCard(data: TimeShare): Promise<Blob> {
 
   rule(ctx, 220);
 
-  // ---- the gantry, drawn as it looked at the moment that mattered ----------
-  // All five dark, because the time on this card was measured from the instant
-  // they went out. A card showing them lit would be showing the wrong moment.
+  // ---- the gantry ----------------------------------------------------------
+  // LIT, not dark. Strictly the time was measured from the instant they went
+  // out, so the accurate frame is five dark circles — but five dark circles
+  // are not a picture of anything. The five red lights are the image everyone
+  // recognises as a Formula 1 start, and on a card seen as a thumbnail in a
+  // chat that recognition is the entire job.
   const r = 46;
   const gap = 40;
+  const cy = 330;
   const totalW = 5 * (r * 2) + 4 * gap;
   let cx = (W - totalW) / 2 + r;
   for (let i = 0; i < 5; i++) {
+    // Glow first, underneath, so the lamps sit on top of their own bloom.
+    const glow = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, r * 1.9);
+    glow.addColorStop(0, 'rgba(255,40,40,0.42)');
+    glow.addColorStop(1, 'rgba(255,40,40,0)');
+    ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(cx, 330, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#14181d';
+    ctx.arc(cx, cy, r * 1.9, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#272e36';
+
+    // The lamp, lit off-centre like the CSS version so it reads as a bulb
+    // rather than a flat disc.
+    const lamp = ctx.createRadialGradient(cx - r * 0.24, cy - r * 0.32, r * 0.1, cx, cy, r);
+    lamp.addColorStop(0, '#ff6b6b');
+    lamp.addColorStop(0.62, '#d40000');
+    lamp.addColorStop(1, '#7a0000');
+    ctx.fillStyle = lamp;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ff4d4d';
     ctx.lineWidth = 2;
     ctx.stroke();
+
     cx += r * 2 + gap;
   }
 
