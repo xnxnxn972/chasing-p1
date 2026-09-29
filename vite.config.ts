@@ -49,7 +49,8 @@ export default defineConfig({
       // give. It also keeps the career bundle off a page that does not need it.
       input: {
         main: resolve(__dirname, 'index.html'),
-        lightsOut: resolve(__dirname, 'minigames/lights-out/index.html')
+        lightsOut: resolve(__dirname, 'minigames/lights-out/index.html'),
+        brakePoint: resolve(__dirname, 'minigames/brake-point/index.html')
       }
     }
   },
