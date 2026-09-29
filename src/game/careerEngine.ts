@@ -220,6 +220,8 @@ function advanceCursor(cursor: GameState['cursor']): GameState['cursor'] {
     case 'preseason':
       return 'midseason';
     case 'midseason':
+      return 'gridstart';
+    case 'gridstart':
       return 'race';
     case 'race':
       return 'offseason';
@@ -254,6 +256,47 @@ function openSeason(state: GameState, rng: Rng): void {
 }
 
 /** Run stages until one produces something for the player to look at. */
+/**
+ * How often a season stops for a grid start.
+ *
+ * ZERO ON PURPOSE. The minigame is finished and wired in, but it does not
+ * appear in a career yet: it is being tried on its own page first, at
+ * /minigames/lights-out/, before it interrupts anybody's season. Set this to
+ * 0.25 to switch it on, which puts it in roughly six seasons of a
+ * twenty-five-season career. Nothing else needs changing.
+ *
+ * Measured at 0.25 with a perfect +2 every single time, against never scoring
+ * at all: +6.8% career score, +3.6 racecraft, +7.5% titles. That is the
+ * ceiling no human will reach, and it is the number to re-check if the boost
+ * in gameLogic.ts ever goes up.
+ */
+export const GRID_START_CHANCE = 0;
+
+/** Hard ceiling on Racecraft from starts, so a career cannot be farmed. */
+export const RACECRAFT_CAP = 100;
+
+/**
+ * Apply a grid start and carry on with the season.
+ *
+ * Called by the UI when the minigame reports a result. The boost is decided
+ * by the minigame, not here, and it is clamped: stats are a 0-100 scale and
+ * nothing else in the game moves one by more than a couple of points a year.
+ *
+ * Advancing the cursor here is what makes one attempt mean one attempt. The
+ * stage is left behind before the next step runs, so there is no path back
+ * into it this season.
+ */
+export function applyGridStart(state: GameState, boost: number): GameState {
+  const next = clone(state);
+  next.pending = null;
+  if (boost > 0) {
+    next.player.stats.racecraft = Math.min(RACECRAFT_CAP, next.player.stats.racecraft + boost);
+  }
+  // The cursor is already past 'gridstart' — the stage advances itself when it
+  // fires — so this only has to resume the season.
+  return step(next);
+}
+
 function step(state: GameState): GameState {
   let guard = 0;
   while (!state.pending && state.cursor !== 'retired' && guard++ < 40) {
@@ -275,7 +318,42 @@ function step(state: GameState): GameState {
         if (canDecide(state) && rng.chance(0.47)) {
           state.pending = nextDecision(state, rng, 'midseason');
         }
-        if (!state.pending) state.cursor = 'race';
+        if (!state.pending) state.cursor = 'gridstart';
+        break;
+      }
+      /**
+       * THE GRID START.
+       *
+       * A season occasionally stops and asks the player to do something with
+       * their hands. It is deliberately not a decision: it costs no reading,
+       * it cannot be got wrong in a way that matters, and the whole beat is
+       * under ten seconds.
+       *
+       * The rate is a guess and wants playtesting rather than defending. At
+       * 0.25 a 25-season career sees it about six times, which is often enough
+       * to be a texture and rare enough that it is not a toll booth in front
+       * of every race. It is the only number to change if it feels wrong.
+       *
+       * Reserve years are skipped: a driver who is not racing has no start.
+       */
+      case 'gridstart': {
+        const show = !state.reserveTeamId && rng.chance(GRID_START_CHANCE);
+        // Leave the stage BEFORE offering the minigame, not after it is
+        // resolved. Every other stage can be resumed with continueStep, which
+        // clears `pending` and steps again; if this one were still the cursor
+        // at that point it would re-roll and could fire twice in a season, or
+        // spin until the loop guard tripped. Advancing first makes the stage
+        // happen exactly once however it is resumed.
+        state.cursor = 'race';
+        if (show) {
+          state.pending = {
+            kind: 'minigame',
+            game: 'lights-out',
+            tag: 'Race day',
+            title: 'Lights out',
+            body: 'Five red lights. Go the moment they disappear.'
+          };
+        }
         break;
       }
       case 'race': {

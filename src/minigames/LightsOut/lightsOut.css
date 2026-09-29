@@ -1,0 +1,228 @@
+/*
+ * LIGHTS OUT
+ *
+ * Reuses the game's tokens (--bg, --lime, the two type families) rather than
+ * declaring its own palette, so a minigame dropped over the career screen
+ * looks like part of it and not like a widget.
+ *
+ * The tap surface is deliberately enormous. This is measured in milliseconds:
+ * asking anyone to aim costs them more time than their reaction does, and on a
+ * phone it would make thumb position the skill being tested.
+ */
+
+.lo {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  font-family: var(--body, 'Inter', system-ui, sans-serif);
+  color: var(--text, #f3f6f8);
+}
+
+.lo-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line, #1c222a);
+  padding-bottom: 8px;
+}
+
+.lo-title {
+  font-family: var(--display, 'Barlow Condensed', sans-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.lo-sub {
+  font-family: var(--display, 'Barlow Condensed', sans-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 11px;
+  color: var(--text-faint, #545d69);
+}
+
+/* ---- the gantry ---------------------------------------------------------- */
+
+.lo-gantry {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: clamp(8px, 3vw, 16px);
+}
+
+.lo-light {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #14181d;
+  border: 1px solid #23292f;
+  /* No transition on the way OUT. The lights going out is the start signal,
+     and fading it would add its own delay to everyone's reaction time. */
+  transition: none;
+}
+
+.lo-light.on {
+  background: radial-gradient(circle at 38% 34%, #ff6b6b, #d40000 62%, #7a0000);
+  border-color: #ff4d4d;
+  box-shadow: 0 0 18px rgba(255, 40, 40, 0.55);
+}
+
+/* ---- the tap surface ----------------------------------------------------- */
+
+.lo-surface {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: clamp(180px, 34vh, 260px);
+  padding: 20px;
+  border: 1px solid var(--line, #1c222a);
+  border-radius: 4px;
+  background: var(--bg-panel, #0b0e12);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  /* Stops the double-tap-to-zoom delay on iOS, which would be indistinguishable
+     from a slow reaction. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.lo-surface:disabled {
+  cursor: default;
+}
+
+.lo-out .lo-surface {
+  background: #0d2b0d;
+  border-color: var(--lime, #c8ff00);
+}
+
+.lo-cue {
+  font-family: var(--display, 'Barlow Condensed', sans-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: clamp(20px, 5vw, 28px);
+  font-weight: 700;
+}
+
+.lo-cue.dim {
+  color: var(--text-faint, #545d69);
+  letter-spacing: 0.3em;
+}
+
+.lo-cue.go {
+  color: var(--lime, #c8ff00);
+  font-size: clamp(40px, 12vw, 72px);
+  letter-spacing: 0.1em;
+}
+
+/* ---- the result ---------------------------------------------------------- */
+
+.lo-out,
+.lo-surface > .lo-out {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.lo-time {
+  font-family: var(--mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-weight: 700;
+  font-size: clamp(38px, 11vw, 60px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--lime, #c8ff00);
+}
+
+.lo-band {
+  font-family: var(--display, 'Barlow Condensed', sans-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.lo-band-jump,
+.lo-band-asleep,
+.lo-band-slow {
+  color: #ff9e3d;
+}
+
+.lo-band-lightning,
+.lo-band-great,
+.lo-band-good {
+  color: var(--lime, #c8ff00);
+}
+
+.lo-note {
+  color: var(--text-dim, #99a3af);
+  font-size: 13.5px;
+  max-width: 34ch;
+  line-height: 1.5;
+}
+
+.lo-boost {
+  margin-top: 6px;
+  font-family: var(--display, 'Barlow Condensed', sans-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 13px;
+  color: var(--lime, #c8ff00);
+}
+
+.lo-boost-zero {
+  color: var(--text-faint, #545d69);
+}
+
+/* ---- footer -------------------------------------------------------------- */
+
+.lo-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  min-height: 40px;
+}
+
+.lo-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 3px;
+  background: var(--lime, #c8ff00);
+  color: #0b0d10;
+  font-family: var(--display, 'Barlow Condensed', sans-serif);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 16px;
+  padding: 11px 20px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.lo-best {
+  font-family: var(--mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 13px;
+  color: var(--text-dim, #99a3af);
+  font-variant-numeric: tabular-nums;
+}
+
+.lo-hint {
+  color: var(--text-faint, #545d69);
+  font-size: 12.5px;
+  line-height: 1.5;
+  flex: 1 1 14ch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lo-light {
+    box-shadow: none;
+  }
+}

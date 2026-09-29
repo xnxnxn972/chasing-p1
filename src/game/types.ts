@@ -245,16 +245,37 @@ export interface PendingNews {
   roll?: RollInfo;
 }
 
+/**
+ * The grid start. A ten-second break in the story where the player does
+ * something with their hands instead of choosing from a list.
+ *
+ * It carries no options and no text to read: the component owns the whole
+ * interaction and hands back a Racecraft boost. One attempt, which is why
+ * there is no retry anywhere in this type.
+ */
+export interface PendingMinigame {
+  kind: 'minigame';
+  game: 'lights-out';
+  tag: string;
+  title: string;
+  body: string;
+}
+
 export type PendingStep =
   | PendingDecision
   | PendingOffers
   | PendingResult
-  | PendingNews;
+  | PendingNews
+  | PendingMinigame;
 
 export type Cursor =
   | 'contract'
   | 'preseason'
   | 'midseason'
+  // Between the last decision of the season and the racing itself. Its own
+  // stage rather than a branch inside 'race', so that resuming after the
+  // minigame cannot re-enter it and hand out a second boost.
+  | 'gridstart'
   | 'race'
   | 'offseason'
   | 'advance'

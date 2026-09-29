@@ -1,5 +1,7 @@
+import { useRef } from 'react';
 import type { GameState } from '../game/types';
-import { chooseDecisionOption, chooseOffer, continueStep, declineOffers } from '../game/careerEngine';
+import { applyGridStart, chooseDecisionOption, chooseOffer, continueStep, declineOffers } from '../game/careerEngine';
+import { LightsOut } from '../minigames/LightsOut/LightsOut';
 import { DriverCard } from '../components/DriverCard';
 import { CareerTable } from '../components/CareerTable';
 import { AchievementBadge, DecisionCard, NewsCard, OffersCard, ResultCard } from '../components/StepCard';
@@ -15,6 +17,10 @@ export function CareerScreen({
   onRestart: () => void;
 }) {
   const pending = state.pending;
+  // Held between the minigame reporting a result and the player pressing
+  // Continue. A ref rather than state: re-rendering the career screen while
+  // the result is on screen would remount the minigame and wipe it.
+  const lastBoost = useRef(0);
 
   return (
     <div className="app">
@@ -64,6 +70,25 @@ export function CareerScreen({
               onSign={(offerId) => onState(chooseOffer(state, offerId))}
               onDecline={() => onState(declineOffers(state))}
             />
+          ) : null}
+
+          {pending?.kind === 'minigame' ? (
+            <section className="panel panel-pad">
+              <div className="eyebrow" style={{ marginBottom: 10 }}>
+                {pending.tag}
+              </div>
+              {/* One attempt, and the only way out is through it: no skip, no
+                  retry. The boost is applied when the player continues rather
+                  than the instant they tap, so the result is on screen long
+                  enough to read. */}
+              <LightsOut
+                mode="career"
+                onExit={() => onState(applyGridStart(state, lastBoost.current))}
+                onComplete={(r) => {
+                  lastBoost.current = r.boost;
+                }}
+              />
+            </section>
           ) : null}
 
           {pending?.kind === 'news' ? (

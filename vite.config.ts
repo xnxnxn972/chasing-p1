@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -40,7 +40,19 @@ export default defineConfig({
   // Relative base so the built app works on GitHub Pages subpaths.
   base: './',
   // Pages serves /docs as the site root, which keeps the public URL clean.
-  build: { outDir: 'docs' },
+  build: {
+    outDir: 'docs',
+    rollupOptions: {
+      // A page per entry rather than routes inside the app. The minigames are
+      // meant to be FOUND — "f1 reaction time test" is a real search — and that
+      // needs a crawlable URL with its own title, which a hash route does not
+      // give. It also keeps the career bundle off a page that does not need it.
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        lightsOut: resolve(__dirname, 'minigames/lights-out/index.html')
+      }
+    }
+  },
   plugins: [react(), writeAsset()],
   server: { port: 5174, host: true }
 });

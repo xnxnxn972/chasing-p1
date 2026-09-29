@@ -399,12 +399,32 @@ let installed = false;
  * Fired a second after load rather than immediately, so a visitor who closes
  * the tab instantly costs nothing, and so it never competes with rendering.
  */
+/**
+ * Which page of the site this load was.
+ *
+ * Until the minigames existed this was always the game, so the column was left
+ * to the server's default of '/'. It no longer can be: a standalone minigame
+ * page that reported itself as '/' would enter the game funnel as an arrival
+ * that never starts a career, and quietly drag the bounce rate down for ever.
+ * That is exactly what the article beacons did before they were normalised,
+ * and the same rule is used here so the two agree.
+ */
+function pageKey(): string {
+  try {
+    const p = location.pathname.replace(/\/index\.html?$/i, '/');
+    return /\/$|\.[a-z0-9]+$/i.test(p) ? p : p + '/';
+  } catch {
+    return '/';
+  }
+}
+
 function logLoad(): void {
   const send = () => {
     try {
       const body = JSON.stringify({
         p: {
           visit_id: visitId,
+          page: pageKey(),
           referrer: row.referrer,
           device: row.device,
           platform: row.platform,
