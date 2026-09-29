@@ -226,3 +226,16 @@
     box-shadow: none;
   }
 }
+
+/* Share sits beside "Try again" but reads as the secondary action: the loop
+   the page wants is another attempt, not a broadcast. */
+.lo-btn-share {
+  background: transparent;
+  color: var(--lime, #c8ff00);
+  border: 1px solid var(--lime, #c8ff00);
+}
+
+.lo-btn-share:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

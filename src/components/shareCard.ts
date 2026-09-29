@@ -13,19 +13,19 @@ const W = 1080;
 const H = 1350;
 const PAD = 76;
 
-const INK = '#05070a';
-const LIME = '#c8ff00';
-const TEXT = '#f3f6f8';
-const DIM = '#8b95a2';
-const FAINT = '#5b6472';
-const LINE = '#232a33';
+export const INK = '#05070a';
+export const LIME = '#c8ff00';
+export const TEXT = '#f3f6f8';
+export const DIM = '#8b95a2';
+export const FAINT = '#5b6472';
+export const LINE = '#232a33';
 
-const DISPLAY = '"Barlow Condensed", "Arial Narrow", sans-serif';
-const BODY = '"Twemoji Country Flags", Inter, system-ui, sans-serif';
-const MONO = '"JetBrains Mono", ui-monospace, monospace';
+export const DISPLAY = '"Barlow Condensed", "Arial Narrow", sans-serif';
+export const BODY = '"Twemoji Country Flags", Inter, system-ui, sans-serif';
+export const MONO = '"JetBrains Mono", ui-monospace, monospace';
 
 /** Shrink a font size until the text fits the given width. */
-function fitSize(
+export function fitSize(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
@@ -66,7 +66,7 @@ function formatMoneyShort(millions: number): string {
   return `€${Math.round(millions * 1000)}K`;
 }
 
-function rule(ctx: CanvasRenderingContext2D, y: number, colour = LINE) {
+export function rule(ctx: CanvasRenderingContext2D, y: number, colour = LINE) {
   ctx.strokeStyle = colour;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -75,7 +75,7 @@ function rule(ctx: CanvasRenderingContext2D, y: number, colour = LINE) {
   ctx.stroke();
 }
 
-function tracked(
+export function tracked(
   ctx: CanvasRenderingContext2D,
   text: string,
   x: number,
@@ -119,7 +119,7 @@ function drawMark(ctx: CanvasRenderingContext2D, x: number, y: number, height: n
   ctx.restore();
 }
 
-async function ensureFonts() {
+export async function ensureFonts() {
   if (!document.fonts) return;
   const faces = [
     `700 64px ${DISPLAY}`,
@@ -349,7 +349,7 @@ export function gameUrl(beatScore?: number): string {
  * `www.` is dropped because nobody needs to type it, and a port is kept only
  * when there is one, so a local build still shows something truthful.
  */
-function shareHost(): string {
+export function shareHost(): string {
   if (typeof location === 'undefined') return 'PLAYCHASINGP1.COM';
   return location.host.replace(/^www\./, '').toUpperCase();
 }
@@ -421,11 +421,36 @@ export async function shareCareerCard(data: ShareData, prepared?: { file: File; 
   }
   const renderMs = prepared ? 0 : ready.renderMs;
   const file = ready.file;
-  const blob = file;
-  const filename = file.name;
 
-  const nav = navigator as Navigator & { canShare?: (d: ShareData_) => boolean };
-  type ShareData_ = { files?: File[]; title?: string; text?: string };
+  const headline = `${data.title}. ${
+    data.totals.titles > 0 ? `${data.totals.titles}× World Champion, ` : ''
+  }${data.totals.f1Wins} wins.`;
+
+  return handOff(file, `${data.title} — ${data.name}`, `${headline}
+
+Play Chasing P1: ${gameUrl(data.score)}`, renderMs);
+}
+
+/**
+ * Hand a finished PNG to the platform: native sheet where there is one, a file
+ * save where there is not.
+ *
+ * ONE COPY, SHARED BY EVERY CARD. This is the part with the transient-activation
+ * rule in it and the part whose failure mode is silent — a share quietly
+ * becoming a download. A second card with its own copy of it would drift, and
+ * the drift would not show up until the log did.
+ *
+ * The caller must already hold the file: anything awaited between the click
+ * and `navigator.share()` spends the activation. See prepareShareCard.
+ */
+export async function handOff(
+  file: File,
+  title: string,
+  text: string,
+  renderMs = 0
+): Promise<ShareTrace> {
+  type ShareDataLike = { files?: File[]; title?: string; text?: string };
+  const nav = navigator as Navigator & { canShare?: (d: ShareDataLike) => boolean };
 
   if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
     const opened = now();
@@ -433,16 +458,7 @@ export async function shareCareerCard(data: ShareData, prepared?: { file: File; 
       // The link goes inside `text` rather than in `url`: when a file is
       // attached most targets keep the text and drop everything else, and
       // passing both duplicates the link on the ones that do keep it.
-      const headline = `${data.title}. ${
-        data.totals.titles > 0 ? `${data.totals.titles}× World Champion, ` : ''
-      }${data.totals.f1Wins} wins.`;
-      await nav.share({
-        files: [file],
-        title: `${data.title} — ${data.name}`,
-        text: `${headline}
-
-Play Chasing P1: ${gameUrl(data.score)}`
-      });
+      await nav.share({ files: [file], title, text });
       return { result: 'shared', path: 'native', renderMs, sheetMs: Math.round(now() - opened) };
     } catch (err) {
       // The user closing the sheet is a normal outcome, not an error.
@@ -454,10 +470,10 @@ Play Chasing P1: ${gameUrl(data.score)}`
   }
 
   try {
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(file);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.download = file.name;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -469,7 +485,7 @@ Play Chasing P1: ${gameUrl(data.score)}`
 }
 
 /** Monotonic where available, so a clock change cannot produce a negative. */
-function now(): number {
+export function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 

@@ -9,9 +9,21 @@ import {
   resultFor,
   type Result
 } from './gameLogic';
+import { prepareTimeCard, shareTimeCard, type TimeShare } from './shareTime';
+import { trackExtra, trackShare } from '../../game/telemetry';
 import './lightsOut.css';
 
 type Phase = 'ready' | 'lighting' | 'holding' | 'out' | 'done';
+
+/**
+ * Which results get a share button.
+ *
+ * Only the ones somebody would actually want to send. The same judgement was
+ * made about careers: a failed one gets no prompt, because inviting a player
+ * to broadcast a bad result is not encouragement, it is a taunt. A slow
+ * getaway, a doze and a jump start all pass without one.
+ */
+const SHAREABLE = new Set(['lightning', 'perfect', 'decent']);
 
 /**
  * LIGHTS OUT
@@ -55,6 +67,13 @@ export function LightsOut({
   const [lit, setLit] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const [best, setBest] = useState<number | null>(null);
+  const [sharing, setSharing] = useState(false);
+
+  // The finished PNG, built the moment a shareable time lands rather than when
+  // the button is pressed. navigator.share() needs the click still to be live,
+  // and a canvas draw spends that activation: on the career card, getting this
+  // wrong turned a third of Android shares into silent file saves.
+  const prepared = useRef<{ file: File; renderMs: number } | null>(null);
 
   // Wall-clock instant the lights went out, and whether a round is in progress.
   //
@@ -132,6 +151,25 @@ export function LightsOut({
           // Not being able to remember a best time is not worth failing over.
         }
       }
+      // Pre-render for the share button. Standalone only, and only for a time
+      // worth showing somebody: a jump start or a half-second doze is not a
+      // brag, and offering to broadcast it reads as a taunt.
+      prepared.current = null;
+      if (mode === 'standalone' && r.ms !== null && SHAREABLE.has(r.rating.band)) {
+        const payload: TimeShare = {
+          ms: r.ms,
+          rating: r.rating,
+          best: best !== null && best < r.ms ? best : undefined
+        };
+        void prepareTimeCard(payload)
+          .then((p) => {
+            prepared.current = p;
+          })
+          .catch(() => {
+            // No card: the button still works, it just renders on demand.
+          });
+      }
+
       onComplete?.(r);
     },
     [best, clearTimers, mode, onComplete]
@@ -258,6 +296,41 @@ export function LightsOut({
           // counted as having jumped a start they never began.
           <button type="button" className="lo-btn" onClick={reset}>
             Try again
+          </button>
+        ) : null}
+
+        {phase === 'done' && canReplay && result?.ms !== null && result && SHAREABLE.has(result.rating.band) ? (
+          <button
+            type="button"
+            className="lo-btn lo-btn-share"
+            disabled={sharing}
+            onClick={async () => {
+              if (sharing || result.ms === null) return;
+              setSharing(true);
+              try {
+                const trace = await shareTimeCard(
+                  {
+                    ms: result.ms,
+                    rating: result.rating,
+                    best: best !== null && best < result.ms ? best : undefined
+                  },
+                  // Whatever finish() managed to build. Passing null makes
+                  // shareTimeCard render on demand, which is the slow path
+                  // this is all arranged to avoid.
+                  prepared.current ?? undefined
+                );
+                trackShare(trace.result);
+                trackExtra('share_game', 'lights-out');
+                trackExtra('share_path', trace.path);
+                trackExtra('share_ms', result.ms);
+                trackExtra('share_render_ms', trace.renderMs);
+                trackExtra('share_sheet_ms', trace.sheetMs);
+              } finally {
+                setSharing(false);
+              }
+            }}
+          >
+            {sharing ? 'Sharing…' : 'Share time'}
           </button>
         ) : null}
 
