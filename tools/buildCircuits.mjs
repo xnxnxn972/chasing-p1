@@ -36,12 +36,18 @@ const VENUES = [
     start: [0.20, 0.86], clockwise: true,
     fact: 'Barely three and a bit kilometres of public road, and the slowest corner in Formula 1 is in the middle of it.' },
 
-  // The Suzuka and Interlagos SVGs use a portrait viewBox, but both are
-  // conventionally printed landscape. Rotated to match how they are actually
-  // shown, because a circuit turned on its side is a different silhouette to
-  // anyone trying to recognise it.
+  /**
+   * `rotate` squares the outline up with how the circuit is actually printed.
+   *
+   * These SVGs are drawn geographically, north-up. Published circuit maps are
+   * not: they are turned to sit flat in a landscape frame. Suzuka and
+   * Interlagos ship portrait and are conventionally shown landscape, and a
+   * circuit on its side is a different silhouette to anyone trying to
+   * recognise one. Angles picked by rendering candidates against the
+   * reference maps.
+   */
   { id: 'suzuka', file: 'RaceCircuitSuzuka.svg', name: 'Suzuka', country: 'Japan',
-    start: [0.86, 0.06], clockwise: true, rotate: 90,
+    start: [0.80, 0.12], clockwise: true, rotate: 65,
     fact: 'The only figure-of-eight on the calendar: the back straight crosses the first sector on a bridge.' },
 
   { id: 'spa', file: 'RaceCircuitSpa.svg', name: 'Spa-Francorchamps', country: 'Belgium',
@@ -53,7 +59,7 @@ const VENUES = [
     fact: 'Maggotts and Becketts is a sequence of direction changes taken at around 300 km/h.' },
 
   { id: 'interlagos', file: 'RaceCircuitInterlagos.svg', name: 'Interlagos', country: 'Brazil',
-    start: [0.46, 0.04], clockwise: false, rotate: 90,
+    start: [0.40, 0.06], clockwise: false, rotate: 60,
     fact: 'One of the few run anti-clockwise, and the whole lap climbs and falls across a natural bowl.' }
 ];
 
@@ -257,8 +263,12 @@ for (const v of VENUES) {
 
   const pieces = ds.map(parsePath).filter((p) => p.length > 1);
   let pts = pieces.length > 1 ? chain(pieces) : pieces[0];
-  if (v.rotate === 90) pts = pts.map(([x, y]) => [-y, x]);
-  if (v.rotate === 270) pts = pts.map(([x, y]) => [y, -x]);
+  if (v.rotate) {
+    const r = (v.rotate * Math.PI) / 180;
+    const c = Math.cos(r);
+    const s2 = Math.sin(r);
+    pts = pts.map(([x, y]) => [x * c - y * s2, x * s2 + y * c]);
+  }
   pts = fit(resample(pts, TARGET));
 
   // Orient. A figure-of-eight has near-zero signed area because its lobes

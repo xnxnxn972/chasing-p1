@@ -49,7 +49,8 @@ export default defineConfig({
       // give. It also keeps the career bundle off a page that does not need it.
       input: {
         main: resolve(__dirname, 'index.html'),
-        lightsOut: resolve(__dirname, 'minigames/lights-out/index.html')
+        lightsOut: resolve(__dirname, 'minigames/lights-out/index.html'),
+        trackRecall: resolve(__dirname, 'minigames/track-recall/index.html')
         // brake-point is PAUSED, not abandoned. The car does not visibly turn
         // into the corner, so the corner reads as an abstraction rather than
         // somewhere you are going, and no amount of retuning the numbers fixes
