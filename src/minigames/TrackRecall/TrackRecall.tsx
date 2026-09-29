@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CIRCUITS, type Circuit } from './circuits';
 import { matchScore, ratingFor, type Pt } from './recallScore';
+import { prepareRecallCard, shareRecallCard, type RecallShare } from './shareRecall';
+import { trackExtra, trackShare } from '../../game/telemetry';
 import './trackRecall.css';
 
 type Phase = 'ready' | 'study' | 'lap' | 'draw' | 'result';
@@ -46,12 +48,22 @@ export function TrackRecall({
    * only the ten-second timer ever ended it.
    */
   const [hasInk, setHasInk] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const strokes = useRef<Pt[][]>([]);
   const drawing = useRef(false);
   const raf = useRef<number | null>(null);
   const timers = useRef<number[]>([]);
+  /**
+   * The finished PNG, built the moment the round ends rather than when the
+   * button is pressed. navigator.share() needs the click still to be live,
+   * and a canvas draw spends it: the measured cost of getting this wrong was
+   * a third of Android shares turning into silent file saves.
+   */
+  const prepared = useRef<{ file: File; renderMs: number } | null>(null);
+  /** What the card shows, frozen at the end of the round. Null when there is nothing to share. */
+  const shareable = useRef<RecallShare | null>(null);
 
   const clearTimers = useCallback(() => {
     for (const t of timers.current) window.clearTimeout(t);
@@ -109,15 +121,14 @@ export function TrackRecall({
        * score already ignores.
        */
       if (opts.compare) {
-        const ink = strokes.current.flat();
-        panel(ctx, 0, 0, w / 2, h, circuit.points, '#c8ff00', 'The circuit');
+        panel(ctx, 0, 0, w / 2, h, [circuit.points], '#c8ff00', 'The circuit');
         ctx.strokeStyle = 'rgba(255,255,255,0.10)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(w / 2 + 0.5, h * 0.12);
         ctx.lineTo(w / 2 + 0.5, h * 0.88);
         ctx.stroke();
-        panel(ctx, w / 2, 0, w / 2, h, ink, '#f3f6f8', 'Yours', false);
+        panel(ctx, w / 2, 0, w / 2, h, strokes.current, '#f3f6f8', 'Yours', false);
         return;
       }
 
@@ -219,6 +230,37 @@ export function TrackRecall({
         // Not remembering a best is not worth failing over.
       }
     }
+    /**
+     * Pre-render the share card.
+     *
+     * NO SCORE GATE, unlike Lights Out. There the number is a verdict on the
+     * player and offering to broadcast a bad one is a taunt. Here the card is
+     * two pictures, and a Monaco that came out like a sock is the funniest
+     * thing this game produces — people want to send that. The only thing
+     * worth withholding is a card with an empty panel on it.
+     */
+    prepared.current = null;
+    shareable.current = null;
+    if (mode === 'standalone' && strokes.current.some((k) => k.length >= 2)) {
+      const payload: RecallShare = {
+        circuit,
+        // Copied, because the next round empties the live array and the
+        // result screen is still showing this one.
+        strokes: strokes.current.map((k) => [...k]),
+        score: s,
+        rating: ratingFor(s, circuit.name),
+        best: best !== null && best > s ? best : undefined
+      };
+      shareable.current = payload;
+      void prepareRecallCard(payload)
+        .then((p) => {
+          prepared.current = p;
+        })
+        .catch(() => {
+          // No card: the button still works, it just renders on demand.
+        });
+    }
+
     onComplete?.(s);
   }, [best, circuit, clearTimers, mode, onComplete]);
 
@@ -353,6 +395,38 @@ export function TrackRecall({
           </>
         ) : null}
 
+        {/* Standalone only. Inside a career this is one beat in somebody's
+            story, and a share button there invites them to leave it. */}
+        {phase === 'result' && mode === 'standalone' && hasInk ? (
+          <button
+            type="button"
+            className="tr-btn tr-btn-share"
+            disabled={sharing}
+            onClick={async () => {
+              const payload = shareable.current;
+              if (sharing || !payload) return;
+              setSharing(true);
+              try {
+                // Whatever finish() managed to build. Passing nothing makes
+                // shareRecallCard render on demand, which is the slow path
+                // this is all arranged to avoid.
+                const trace = await shareRecallCard(payload, prepared.current ?? undefined);
+                trackShare(trace.result);
+                trackExtra('share_game', 'track-recall');
+                trackExtra('share_path', trace.path);
+                trackExtra('share_circuit', payload.circuit.id);
+                trackExtra('share_score', payload.score);
+                trackExtra('share_render_ms', trace.renderMs);
+                trackExtra('share_sheet_ms', trace.sheetMs);
+              } finally {
+                setSharing(false);
+              }
+            }}
+          >
+            {sharing ? 'Sharing…' : 'Share it'}
+          </button>
+        ) : null}
+
         {mode === 'standalone' && best !== null ? (
           <span className="tr-best">Best {best}%</span>
         ) : null}
@@ -409,7 +483,11 @@ function pick(not?: string): Circuit {
  * One half of the comparison: a loop fitted to its box with a caption.
  *
  * The drawing is NOT closed, because the player's line is whatever they drew
- * and joining its ends would invent a stroke they did not make.
+ * and joining its ends would invent a stroke they did not make. Strokes are
+ * kept apart for the same reason: a drawing made in three pen-downs should
+ * not gain two straight lines joining wherever the pen lifted to wherever it
+ * came back down. They share one fit, or a small correction in the corner
+ * would be blown up to the size of the lap.
  */
 function panel(
   ctx: CanvasRenderingContext2D,
@@ -417,11 +495,12 @@ function panel(
   y: number,
   w: number,
   h: number,
-  pts: Pt[],
+  strokes: Pt[][],
   colour: string,
   label: string,
   close = true
 ) {
+  const pts = strokes.flat();
   ctx.save();
   ctx.font = '600 11px "Barlow Condensed", system-ui, sans-serif';
   ctx.fillStyle = 'rgba(153,163,175,0.85)';
@@ -440,7 +519,10 @@ function panel(
     const s = Math.min((w * (1 - pad)) / pw, (h * (1 - pad) - 22) / ph);
     const ox = x + (w - pw * s) / 2;
     const oy = y + (h - 22 - ph * s) / 2;
-    trace(ctx, pts.map((p) => [ox + (p[0] - minX) * s, oy + (p[1] - minY) * s] as Pt), colour, 2.6, close);
+    for (const stroke of strokes) {
+      if (stroke.length < 2) continue;
+      trace(ctx, stroke.map((p) => [ox + (p[0] - minX) * s, oy + (p[1] - minY) * s] as Pt), colour, 2.6, close);
+    }
   } else {
     ctx.fillStyle = 'rgba(84,93,105,0.9)';
     ctx.font = '400 12px Inter, system-ui, sans-serif';
