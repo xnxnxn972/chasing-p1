@@ -249,6 +249,11 @@ export interface PendingNews {
  * The grid start. A ten-second break in the story where the player does
  * something with their hands instead of choosing from a list.
  *
+ * It TAKES THE PLACE OF A DECISION rather than being an extra step, so a
+ * career is not made longer by it — one of the questions it would have asked
+ * is a grid start instead. That is also why it advances the season exactly
+ * as choosing a decision option does.
+ *
  * It carries no options and no text to read: the component owns the whole
  * interaction and hands back a Racecraft boost. One attempt, which is why
  * there is no retry anywhere in this type.
@@ -272,10 +277,6 @@ export type Cursor =
   | 'contract'
   | 'preseason'
   | 'midseason'
-  // Between the last decision of the season and the racing itself. Its own
-  // stage rather than a branch inside 'race', so that resuming after the
-  // minigame cannot re-enter it and hand out a second boost.
-  | 'gridstart'
   | 'race'
   | 'offseason'
   | 'advance'
@@ -340,6 +341,25 @@ export interface GameState {
   decisionBudget: number;
   decisionsUsed: number;
   pending: PendingStep | null;
+  /**
+   * Whether this career has already had its grid start. Once only: the moment
+   * is meant to be a surprise in a career, and a second one is just a toll.
+   */
+  gridStartUsed?: boolean;
+  /**
+   * The season from which the grid start may take the place of a decision,
+   * chosen when the career is created rather than rolled at each one.
+   *
+   * A flat chance per decision was tried first and left a quarter of careers
+   * never seeing it, two thirds of which had plenty of decisions and simply
+   * kept losing the coin flip. Scheduling it makes it happen once, spread
+   * across the early career, and reproducible from the seed.
+   *
+   * Counted in SEASONS, not decisions: `decisionsUsed` is reset by
+   * openSeason every year, so it is a per-season budget counter and not a
+   * career total. Using it here fired in 9% of careers.
+   */
+  gridStartSeason?: number;
   log: string[];
   /** Set while the player is an F1 reserve rather than a race driver. */
   reserveTeamId?: F1TeamId;

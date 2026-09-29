@@ -78,6 +78,9 @@ export function createCareer(setup: CareerSetup): GameState {
     seed: setup.seed,
     year: START_YEAR,
     cursor: 'contract',
+    // Which season the grid start belongs to. Drawn here, from the career's
+    // own seed, so the same seed always produces the same career.
+    gridStartSeason: GRID_START_FIRST + Math.floor(rng.next() * GRID_START_SPREAD),
     rngState: rng.snapshot(),
     player: {
       name: setup.name,
@@ -220,8 +223,6 @@ function advanceCursor(cursor: GameState['cursor']): GameState['cursor'] {
     case 'preseason':
       return 'midseason';
     case 'midseason':
-      return 'gridstart';
-    case 'gridstart':
       return 'race';
     case 'race':
       return 'offseason';
@@ -257,20 +258,54 @@ function openSeason(state: GameState, rng: Rng): void {
 
 /** Run stages until one produces something for the player to look at. */
 /**
- * How often a season stops for a grid start.
+ * WHICH season the grid start belongs to: the 2nd at the earliest, the 7th at
+ * the latest, drawn once per career. It then replaces the first decision that
+ * season asks.
  *
- * ZERO ON PURPOSE. The minigame is finished and wired in, but it does not
- * appear in a career yet: it is being tried on its own page first, at
- * /minigames/lights-out/, before it interrupts anybody's season. Set this to
- * 0.25 to switch it on, which puts it in roughly six seasons of a
- * twenty-five-season career. Nothing else needs changing.
+ * ONE A CAREER, SCHEDULED RATHER THAN ROLLED. A flat chance per decision was
+ * tried first and left 23% of careers never seeing it, two thirds of which
+ * had plenty of decisions and simply kept losing the coin flip. Raising the
+ * chance fixed the tail only by clustering every grid start onto the first
+ * question. Choosing the slot up front does both jobs: it happens once, and
+ * it is spread across the early career.
  *
- * Measured at 0.25 with a perfect +2 every single time, against never scoring
- * at all: +6.8% career score, +3.6 racecraft, +7.5% titles. That is the
- * ceiling no human will reach, and it is the number to re-check if the boost
- * in gameLogic.ts ever goes up.
+ * Not season one, because the opening questions of a career are doing work a
+ * reaction test cannot do. Not later than season seven, because a career that
+ * ends early should still have met it.
  */
-export const GRID_START_CHANCE = 0;
+export const GRID_START_FIRST = 2;
+export const GRID_START_SPREAD = 6; // seasons 2..7
+
+/**
+ * A decision slot, or the grid start in its place.
+ *
+ * Fires at the first eligible slot AT OR AFTER the scheduled one, rather than
+ * exactly on it, so a reserve year landing on the target postpones the grid
+ * start instead of cancelling it.
+ *
+ * Reserve years are skipped: a driver who is not racing has no start to make,
+ * and being handed one while sitting out would read as a bug.
+ */
+function decisionOrGridStart(
+  state: GameState,
+  rng: Rng,
+  slot: 'preseason' | 'midseason' | 'offseason'
+): PendingStep | null {
+  // Seasons completed, so season one is 0. `decisionsUsed` cannot be used
+  // here: openSeason resets it every year.
+  const due = state.history.length + 1 >= (state.gridStartSeason ?? Infinity);
+  if (!state.gridStartUsed && !state.reserveTeamId && due) {
+    state.gridStartUsed = true;
+    return {
+      kind: 'minigame',
+      game: 'lights-out',
+      tag: 'Race day',
+      title: 'Lights out',
+      body: 'Hold the clutch. Let go the moment the lights go out.'
+    };
+  }
+  return nextDecision(state, rng, slot);
+}
 
 /** Hard ceiling on Racecraft from starts, so a career cannot be farmed. */
 export const RACECRAFT_CAP = 100;
@@ -292,8 +327,11 @@ export function applyGridStart(state: GameState, boost: number): GameState {
   if (boost > 0) {
     next.player.stats.racecraft = Math.min(RACECRAFT_CAP, next.player.stats.racecraft + boost);
   }
-  // The cursor is already past 'gridstart' — the stage advances itself when it
-  // fires — so this only has to resume the season.
+  // It stood in for a decision, so it leaves the season in the state a decision
+  // would have: cursor advanced past the slot it occupied. Without this the
+  // step machine would re-enter the same slot and could ask the question the
+  // grid start replaced.
+  next.cursor = advanceCursor(next.cursor);
   return step(next);
 }
 
@@ -309,51 +347,16 @@ function step(state: GameState): GameState {
       }
       case 'preseason': {
         if (canDecide(state) && rng.chance(0.36)) {
-          state.pending = nextDecision(state, rng, 'preseason');
+          state.pending = decisionOrGridStart(state, rng, 'preseason');
         }
         if (!state.pending) state.cursor = 'midseason';
         break;
       }
       case 'midseason': {
         if (canDecide(state) && rng.chance(0.47)) {
-          state.pending = nextDecision(state, rng, 'midseason');
+          state.pending = decisionOrGridStart(state, rng, 'midseason');
         }
-        if (!state.pending) state.cursor = 'gridstart';
-        break;
-      }
-      /**
-       * THE GRID START.
-       *
-       * A season occasionally stops and asks the player to do something with
-       * their hands. It is deliberately not a decision: it costs no reading,
-       * it cannot be got wrong in a way that matters, and the whole beat is
-       * under ten seconds.
-       *
-       * The rate is a guess and wants playtesting rather than defending. At
-       * 0.25 a 25-season career sees it about six times, which is often enough
-       * to be a texture and rare enough that it is not a toll booth in front
-       * of every race. It is the only number to change if it feels wrong.
-       *
-       * Reserve years are skipped: a driver who is not racing has no start.
-       */
-      case 'gridstart': {
-        const show = !state.reserveTeamId && rng.chance(GRID_START_CHANCE);
-        // Leave the stage BEFORE offering the minigame, not after it is
-        // resolved. Every other stage can be resumed with continueStep, which
-        // clears `pending` and steps again; if this one were still the cursor
-        // at that point it would re-roll and could fire twice in a season, or
-        // spin until the loop guard tripped. Advancing first makes the stage
-        // happen exactly once however it is resumed.
-        state.cursor = 'race';
-        if (show) {
-          state.pending = {
-            kind: 'minigame',
-            game: 'lights-out',
-            tag: 'Race day',
-            title: 'Lights out',
-            body: 'Hold the clutch. Let go the moment the lights go out.'
-          };
-        }
+        if (!state.pending) state.cursor = 'race';
         break;
       }
       case 'race': {
@@ -363,7 +366,7 @@ function step(state: GameState): GameState {
       }
       case 'offseason': {
         if (canDecide(state) && rng.chance(0.4)) {
-          state.pending = nextDecision(state, rng, 'offseason');
+          state.pending = decisionOrGridStart(state, rng, 'offseason');
         }
         if (!state.pending) state.cursor = 'advance';
         break;
