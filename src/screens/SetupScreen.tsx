@@ -124,7 +124,26 @@ export function SetupScreen({
 
   return (
     <div className="setup">
-      <RuleBar left="Chasing P1" right="F1 Career Simulation" accent />
+      {/*
+        The minigames, from the top of the page.
+
+        The right slot used to read "F1 Career Simulation", which is already
+        the page title, the h1 and the meta description — it was the third
+        time a visitor was told the same thing, in the one spot above the fold
+        that could be doing something. The minigames are a thirty-second way
+        in for somebody not ready to start a twenty-five year career, and
+        until now the only way to find them was a search engine.
+      */}
+      <RuleBar
+        left="Chasing P1"
+        right={
+          <a className="rule-cta" href="/minigames/">
+            Driver training &rarr;
+          </a>
+        }
+        accent
+        keepRight
+      />
 
       <div className="setup-hero">
         {/* First heading in the document. The visible identity is a wordmark,

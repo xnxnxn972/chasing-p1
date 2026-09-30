@@ -65,21 +65,32 @@ export function BrandLockup({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   );
 }
 
-/** The thin labelled rule that frames every screen. */
+/**
+ * The thin labelled rule that frames every screen.
+ *
+ * `keepRight` opts the right slot out of being dropped on a narrow phone.
+ * Everywhere else it is a caption that repeats what the page already says, so
+ * a 375px screen is better off without it — but when it holds a link, hiding
+ * it takes the link away from four visitors in five.
+ */
 export function RuleBar({
   left,
   right,
-  accent = false
+  accent = false,
+  keepRight = false
 }: {
   left: React.ReactNode;
   right?: React.ReactNode;
   accent?: boolean;
+  keepRight?: boolean;
 }) {
   return (
     <div className={`rule-bar${accent ? ' is-accent' : ''}`}>
       <span className="rule-bar-left">{left}</span>
       <span className="rule-line" />
-      {right ? <span className="rule-bar-right">{right}</span> : null}
+      {right ? (
+        <span className={`rule-bar-right${keepRight ? ' is-kept' : ''}`}>{right}</span>
+      ) : null}
     </div>
   );
 }

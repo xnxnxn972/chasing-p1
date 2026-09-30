@@ -229,6 +229,32 @@ h4 {
   text-align: right;
 }
 
+/*
+ * The one link in a rule bar, for the minigames.
+ *
+ * A bordered pill rather than bare text, for two reasons: the rest of the bar
+ * is faint uppercase labels and a link that looks like a label does not get
+ * pressed, and 12px of tracked type is not a tap target. The padding takes it
+ * to a size a thumb can hit.
+ */
+.rule-cta {
+  display: inline-block;
+  padding: 10px 14px;
+  margin: -6px 0;
+  border: 1px solid rgba(200, 255, 0, 0.42);
+  border-radius: 999px;
+  color: var(--lime);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.rule-cta:hover,
+.rule-cta:focus-visible {
+  background: rgba(200, 255, 0, 0.1);
+  border-color: var(--lime);
+}
+
 /* --- Layout ------------------------------------------------------------- */
 
 .app {
@@ -1598,8 +1624,15 @@ details.more[open] > summary::before {
     font-size: 42px;
   }
 
+  /* The caption repeats the page title; a phone is better off without it. */
   .rule-bar-right {
     display: none;
+  }
+
+  /* Unless it holds a link. Four visits in five are mobile, so hiding it
+     there would have been the same as not adding the link at all. */
+  .rule-bar-right.is-kept {
+    display: inline-block;
   }
 }
 
