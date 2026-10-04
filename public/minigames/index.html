@@ -161,5 +161,58 @@
         <a href="/">Chasing P1</a>, a decision-driven Formula 1 career simulation.
       </footer>
     </div>
+
+    <!--
+      THE SAME BEACON EVERY OTHER STATIC PAGE CARRIES.
+
+      This page had none, so it was invisible in cp_loads: a hub that Google
+      has indexed, taking search traffic nobody could see. Worse, it made the
+      minigame pages unreadable - a click from here lands on them as
+      `internal`, which is indistinguishable from a click on the main page's
+      header link, and the two were being conflated.
+
+      With this, /minigames/ gets its own row and its own referrer
+      breakdown, so "found us through search" and "came from the game" are
+      separate numbers again.
+    -->
+    <script>
+      (function () {
+        // Only a real page served over the web is a read. A local file, a
+        // data: snapshot from a preview pane or a blob: is one of us looking
+        // at the page, and it writes a junk `page` value that no filter in
+        // tools/loads.mjs expects.
+        if (location.protocol !== 'https:' && location.protocol !== 'http:') return;
+        try { if (localStorage.getItem('cp1.dev') === '1') return; } catch (e) {}
+        var ua = navigator.userAgent || '';
+        if (navigator.webdriver === true) return;
+        if (/bot|crawl|spider|slurp|headless|phantom|preview|lighthouse/i.test(ua)) return;
+        var id;
+        try { id = crypto.randomUUID(); }
+        catch (e) { id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+        // One page, one `page` value. Both /slug/ and /slug/index.html serve
+        // this file, so without this the same article splits across two rows
+        // in every report and neither one is the real total.
+        var page = location.pathname.replace(/\/index\.html?$/i, '/');
+        if (!/\/$|\.[a-z0-9]+$/i.test(page)) page += '/';
+        var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtdnhhbnFrb3JjZnh3c2R1c3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjI4OTgsImV4cCI6MjA5NTI5ODg5OH0.7o7OnhikQdgApqPTEIbhjOZ-YcKDU1fBFpcLXPXtEtA';
+        setTimeout(function () {
+          try {
+            fetch('https://hmvxanqkorcfxwsdusuj.supabase.co/rest/v1/rpc/cp_log_load', {
+              method: 'POST',
+              keepalive: true,
+              headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: 'Bearer ' + KEY },
+              body: JSON.stringify({ p: {
+                visit_id: id,
+                page: page,
+                referrer: (document.referrer || '').slice(0, 300),
+                device: /Mobi|Android|iPhone|iPad/.test(ua) ? 'mobile' : 'desktop',
+                screen: (screen.width || 0) + 'x' + (screen.height || 0),
+                webdriver: false
+              } })
+            }).catch(function () {});
+          } catch (e) {}
+        }, 1000);
+      })();
+    </script>
   </body>
 </html>
