@@ -1,3 +1,8 @@
+<meta charset="utf-8">
+<!-- Not optional. The page is full of em-dashes, middots and arrows, and
+     without this they render as mojibake anywhere that does not inject a
+     charset of its own - which the artifact host happens to do, so this was
+     invisible until the file was opened directly. -->
 <title>Chasing P1 Telemetry</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -156,6 +161,12 @@
   svg text.axis { fill: var(--ink-dim); }
   .bar { fill: var(--accent); }
   .bar.sub { fill: var(--accent-dim); opacity: 0.6; }
+  /* A CLASS, NOT A fill ATTRIBUTE. The bars carried fill="url(#hatch)" and
+     rendered solid lime regardless: a presentation attribute loses to any
+     stylesheet rule, so `.bar { fill: var(--accent) }` won every time and the
+     legend had been advertising a hatch that never appeared. Declared after
+     `.bar.sub` so it wins on source order at equal specificity. */
+  .bar.partial { fill: url(#hatch); opacity: 1; }
   .bar.flagged { fill: var(--flag); }
   .grid { stroke: var(--rule-soft); stroke-width: 1; }
   .axisline { stroke: var(--rule); stroke-width: 1; }
@@ -208,6 +219,29 @@
   .key.dim b { background: var(--accent-dim); opacity: .6; }
   .key.hatch b { background: var(--raised); border: 1px solid var(--rule);
     background-image: repeating-linear-gradient(45deg, var(--ink-faint) 0 1px, transparent 1px 4px); }
+
+  /* ---- time grain: a segmented control, not a <select> ----------------
+     Four options that are compared against each other, on a page that is
+     read at a glance. A dropdown hides three of them behind a click and
+     says nothing about which grains exist. */
+  .chart-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+  }
+  .chart-top .legend { margin-bottom: 14px; }
+
+  .seg { display: flex; border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; }
+  .seg button {
+    appearance: none; border: 0; background: transparent; cursor: pointer;
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.14em;
+    font-size: 11px; font-weight: 600; color: var(--ink-dim);
+    padding: 7px 13px; white-space: nowrap;
+    transition: background .12s, color .12s;
+  }
+  .seg button + button { border-left: 1px solid var(--rule); }
+  .seg button:hover { color: var(--ink); background: var(--raised); }
+  .seg button.on { background: var(--accent); color: var(--ground); font-weight: 700; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
   /* A dashboard that is missing data has to say so above the numbers, not in
      a footnote under them. */
@@ -280,18 +314,29 @@
 
   <!-- ================= TRAFFIC ================= -->
   <section>
-    <div class="sec-head"><h2>Careers per hour</h2><span class="spine"></span></div>
+    <div class="sec-head"><h2>Careers over time</h2><span class="spine"></span></div>
     <p class="sec-note">Volume above, reach below. <b>New visits</b> counts a browser the first time it
       appears, so it separates fresh arrivals from people still playing.</p>
     <div class="panel">
-      <div class="legend">
-        <span class="key"><b></b>Careers started</span>
-        <span class="key dim"><b></b>New visits</span>
-        <span class="key hatch"><b></b>Hour still filling</span>
+      <div class="chart-top">
+        <div class="legend">
+          <span class="key"><b></b>Careers started</span>
+          <span class="key dim"><b></b>New visits</span>
+          <span class="key hatch"><b></b><span id="partialLabel">Day still filling</span></span>
+        </div>
+        <!-- Daily by default: an hourly view of four weeks is 500 bars nobody
+             can read, and the question this panel answers most often is "how
+             did yesterday compare". -->
+        <div class="seg" id="grain" role="group" aria-label="Time grain">
+          <button type="button" data-grain="hour">Hourly</button>
+          <button type="button" data-grain="day" class="on" aria-pressed="true">Daily</button>
+          <button type="button" data-grain="week">Weekly</button>
+          <button type="button" data-grain="month">Monthly</button>
+        </div>
       </div>
-      <div class="chart-wrap"><svg id="hours" role="img" aria-label="Careers started and new visits per hour"></svg></div>
+      <div class="chart-wrap"><svg id="hours" role="img" aria-label="Careers started and new visits over time"></svg></div>
       <details>
-        <summary>Hourly figures as a table</summary>
+        <summary><span id="tableLabel">Daily</span> figures as a table</summary>
         <div class="chart-wrap"><table id="hoursTable"></table></div>
       </details>
     </div>
@@ -460,81 +505,152 @@
   }
 
   // ---- hourly chart: two small multiples on one shared x ----------------
+  // ---- traffic over time -------------------------------------------------
+  // One chart, four grains. The series are all built server-side: `visits`
+  // and `medianActive` cannot be folded up from hourly buckets without being
+  // wrong, so the page only ever picks one of four ready-made arrays.
   (function () {
-    var H = D.hours, svg = $('hours');
-    var padL = 40, padR = 14, padT = 12, gapY = 26, botH = 46, labelH = 26;
-    var topH = 132, subH = 54;
-    var w = Math.max(720, H.length * 34 + padL + padR);
-    var h = padT + topH + gapY + subH + labelH;
-    var maxC = Math.max.apply(null, H.map(function (x) { return x.careers; }));
-    var maxV = Math.max.apply(null, H.map(function (x) { return x.newVisits; }));
-    var bw = (w - padL - padR) / H.length;
-    var parts = [];
+    var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var monthName = function (k) { return MON[+k.slice(5, 7) - 1] + ' ' + k.slice(0, 4); };
 
-    parts.push('<defs><pattern id="hatch" width="5" height="5" patternTransform="rotate(45)" ' +
-      'patternUnits="userSpaceOnUse"><rect width="5" height="5" fill="' + '#10141a' + '"/>' +
-      '<line x1="0" y1="0" x2="0" y2="5" stroke="#545d69" stroke-width="1.4"/></pattern></defs>');
-
-    // y grid + ticks for the careers plot
-    var ticks = [0, 0.5, 1].map(function (f) { return Math.round(maxC * f); });
-    ticks.forEach(function (t) {
-      var y = padT + topH - (maxC ? t / maxC * topH : 0);
-      parts.push('<line class="grid" x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y + '"/>');
-      parts.push('<text class="axis" x="' + (padL - 8) + '" y="' + (y + 3.5) + '" text-anchor="end">' + t + '</text>');
-    });
-
-    H.forEach(function (d, i) {
-      var x = padL + i * bw, iw = Math.max(3, bw - 5);
-      var partial = D.lastHourPartial && i === H.length - 1;
-      var ch = maxC ? d.careers / maxC * topH : 0;
-      var vh = maxV ? d.newVisits / maxV * subH : 0;
-      var hour = d.t.slice(11, 13);
-      var tipHtml = '<b>' + d.t.slice(5, 10) + ' ' + hour + ':00 UTC</b><br>' +
-        n(d.careers) + ' careers &middot; ' + n(d.finished) + ' finished<br>' +
-        n(d.visits) + ' visits <i>(' + n(d.newVisits) + ' new)</i><br>' +
-        'median ' + d.medianActive + 's active' + (partial ? '<br><i>hour still filling</i>' : '');
-      var fill = partial ? 'url(#hatch)' : null;
-
-      parts.push('<rect class="bar" x="' + x + '" y="' + (padT + topH - ch) + '" width="' + iw +
-        '" height="' + Math.max(ch, 1) + '"' + (fill ? ' fill="' + fill + '"' : '') +
-        ' data-tip="' + encodeURIComponent(tipHtml) + '"/>');
-      parts.push('<rect class="bar sub" x="' + x + '" y="' + (padT + topH + gapY + subH - vh) +
-        '" width="' + iw + '" height="' + Math.max(vh, 1) + '"' + (fill ? ' fill="' + fill + '"' : '') +
-        ' data-tip="' + encodeURIComponent(tipHtml) + '"/>');
-      // Label every other hour so ticks never collide.
-      if (i % 2 === 0 || i === H.length - 1) {
-        parts.push('<text x="' + (x + iw / 2) + '" y="' + (h - 10) + '" text-anchor="middle">' + hour + '</text>');
+    var GRAIN = {
+      hour: {
+        rows: D.hours, pitch: 34, maxBar: 30,
+        tick: function (d) { return d.t.slice(11, 13); },
+        title: function (d) { return d.t.slice(5, 10) + ' ' + d.t.slice(11, 13) + ':00 UTC'; },
+        caption: function (r) { return r[0].t.slice(0, 10) + ' → hour of day, UTC'; },
+        colHead: 'Hour (UTC)', word: 'Hour', table: 'Hourly'
+      },
+      day: {
+        rows: D.days, pitch: 34, maxBar: 30,
+        tick: function (d) { return d.t.slice(5); },
+        title: function (d) { return d.t; },
+        caption: function (r) { return r[0].t + ' → ' + r[r.length - 1].t + ', UTC days'; },
+        colHead: 'Day (UTC)', word: 'Day', table: 'Daily'
+      },
+      week: {
+        rows: D.weeks, pitch: 56, maxBar: 54,
+        tick: function (d) { return d.t.slice(5); },
+        title: function (d) { return 'week of ' + d.t; },
+        caption: function () { return 'ISO weeks, beginning Monday, UTC'; },
+        colHead: 'Week beginning', word: 'Week', table: 'Weekly'
+      },
+      month: {
+        rows: D.months, pitch: 80, maxBar: 76,
+        tick: function (d) { return MON[+d.t.slice(5, 7) - 1]; },
+        title: function (d) { return monthName(d.t); },
+        caption: function () { return 'calendar months, UTC'; },
+        colHead: 'Month', word: 'Month', table: 'Monthly'
       }
+    };
+
+    var svg = $('hours');
+
+    function draw(key) {
+      var G = GRAIN[key], H = G.rows;
+      if (!H || !H.length) return;
+      // labelH carries two rows: the ticks, then the caption under them.
+      // They used to share one baseline starting at the same x, so the
+      // caption was printed straight through the first few tick labels.
+      var padL = 40, padR = 14, padT = 12, gapY = 26, labelH = 44;
+      var topH = 132, subH = 54;
+      var w = Math.max(720, H.length * G.pitch + padL + padR);
+      var h = padT + topH + gapY + subH + labelH;
+      var maxC = Math.max.apply(null, H.map(function (x) { return x.careers; }));
+      var maxV = Math.max.apply(null, H.map(function (x) { return x.newVisits; }));
+      var bw = (w - padL - padR) / H.length;
+      // Capped, or two monthly buckets become two 300px slabs.
+      var iw = Math.max(3, Math.min(bw - 5, G.maxBar));
+      var inset = (bw - iw) / 2;
+      var parts = [];
+
+      parts.push('<defs><pattern id="hatch" width="5" height="5" patternTransform="rotate(45)" ' +
+        'patternUnits="userSpaceOnUse"><rect width="5" height="5" fill="' + '#10141a' + '"/>' +
+        '<line x1="0" y1="0" x2="0" y2="5" stroke="#545d69" stroke-width="1.4"/></pattern></defs>');
+
+      // y grid + ticks for the careers plot
+      var ticks = [0, 0.5, 1].map(function (f) { return Math.round(maxC * f); });
+      ticks.forEach(function (t) {
+        var y = padT + topH - (maxC ? t / maxC * topH : 0);
+        parts.push('<line class="grid" x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y + '"/>');
+        parts.push('<text class="axis" x="' + (padL - 8) + '" y="' + (y + 3.5) + '" text-anchor="end">' + t + '</text>');
+      });
+
+      // Label as often as the width allows, so ticks never collide whatever
+      // the grain or the span.
+      var stride = Math.max(1, Math.ceil(H.length / Math.max(1, Math.floor((w - padL - padR) / 56))));
+
+      H.forEach(function (d, i) {
+        var x = padL + i * bw + inset;
+        var partial = D.partial[key] && i === H.length - 1;
+        var ch = maxC ? d.careers / maxC * topH : 0;
+        var vh = maxV ? d.newVisits / maxV * subH : 0;
+        var tipHtml = '<b>' + G.title(d) + '</b><br>' +
+          n(d.careers) + ' careers &middot; ' + n(d.finished) + ' finished<br>' +
+          n(d.visits) + ' visits <i>(' + n(d.newVisits) + ' new)</i><br>' +
+          'median ' + d.medianActive + 's active' +
+          (partial ? '<br><i>' + G.word.toLowerCase() + ' still filling</i>' : '');
+        var mark = partial ? ' partial' : '';
+
+        parts.push('<rect class="bar' + mark + '" x="' + x + '" y="' + (padT + topH - ch) + '" width="' + iw +
+          '" height="' + Math.max(ch, 1) + '"' +
+          ' data-tip="' + encodeURIComponent(tipHtml) + '"/>');
+        parts.push('<rect class="bar sub' + mark + '" x="' + x + '" y="' + (padT + topH + gapY + subH - vh) +
+          '" width="' + iw + '" height="' + Math.max(vh, 1) + '"' +
+          ' data-tip="' + encodeURIComponent(tipHtml) + '"/>');
+        if (i % stride === 0 || i === H.length - 1) {
+          parts.push('<text x="' + (x + iw / 2) + '" y="' + (h - 26) + '" text-anchor="middle">' + G.tick(d) + '</text>');
+        }
+      });
+
+      parts.push('<line class="axisline" x1="' + padL + '" y1="' + (padT + topH) + '" x2="' + (w - padR) +
+        '" y2="' + (padT + topH) + '"/>');
+      parts.push('<line class="axisline" x1="' + padL + '" y1="' + (padT + topH + gapY + subH) + '" x2="' +
+        (w - padR) + '" y2="' + (padT + topH + gapY + subH) + '"/>');
+      parts.push('<text class="axis" x="' + (padL - 8) + '" y="' + (padT + topH + gapY + subH + 3.5) +
+        '" text-anchor="end">0</text>');
+      parts.push('<text class="axis" x="' + (padL - 8) + '" y="' + (padT + topH + gapY + 3.5) +
+        '" text-anchor="end">' + maxV + '</text>');
+      parts.push('<text x="' + padL + '" y="' + (h - 6) + '" text-anchor="start" ' +
+        'style="fill:var(--ink-faint)">' + G.caption(H) + '</text>');
+
+      svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+      svg.setAttribute('width', w);
+      svg.setAttribute('height', h);
+      svg.innerHTML = parts.join('');
+
+      svg.querySelectorAll('[data-tip]').forEach(function (el) {
+        el.addEventListener('mousemove', function (e) { showTip(e, decodeURIComponent(el.dataset.tip)); });
+        el.addEventListener('mouseleave', hideTip);
+      });
+
+      $('partialLabel').textContent = G.word + ' still filling';
+      $('tableLabel').textContent = G.table;
+
+      $('hoursTable').innerHTML =
+        '<thead><tr><th>' + G.colHead + '</th><th>Careers</th><th>Finished</th><th>Visits</th><th>New</th>' +
+        '<th>Median active</th></tr></thead><tbody>' +
+        H.map(function (d) {
+          return '<tr><td>' + d.t.replace('T', ' ') + '</td><td class="num">' + d.careers + '</td><td class="num">' +
+            d.finished + '</td><td class="num">' + d.visits + '</td><td class="num">' + d.newVisits +
+            '</td><td class="num">' + d.medianActive + 's</td></tr>';
+        }).join('') + '</tbody>';
+    }
+
+    var seg = $('grain');
+    seg.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-grain]');
+      if (!b) return;
+      seg.querySelectorAll('button').forEach(function (x) {
+        var on = x === b;
+        x.classList.toggle('on', on);
+        if (on) x.setAttribute('aria-pressed', 'true'); else x.removeAttribute('aria-pressed');
+      });
+      hideTip();
+      draw(b.dataset.grain);
     });
 
-    parts.push('<line class="axisline" x1="' + padL + '" y1="' + (padT + topH) + '" x2="' + (w - padR) +
-      '" y2="' + (padT + topH) + '"/>');
-    parts.push('<line class="axisline" x1="' + padL + '" y1="' + (padT + topH + gapY + subH) + '" x2="' +
-      (w - padR) + '" y2="' + (padT + topH + gapY + subH) + '"/>');
-    parts.push('<text class="axis" x="' + (padL - 8) + '" y="' + (padT + topH + gapY + subH + 3.5) +
-      '" text-anchor="end">0</text>');
-    parts.push('<text class="axis" x="' + (padL - 8) + '" y="' + (padT + topH + gapY + 3.5) +
-      '" text-anchor="end">' + maxV + '</text>');
-    parts.push('<text x="' + padL + '" y="' + (h - 10) + '" text-anchor="start" ' +
-      'style="fill:var(--ink-faint)">' + D.hours[0].t.slice(0, 10) + ' &rarr; hour of day, UTC</text>');
-
-    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-    svg.setAttribute('width', w);
-    svg.setAttribute('height', h);
-    svg.innerHTML = parts.join('');
-
-    svg.querySelectorAll('[data-tip]').forEach(function (el) {
-      el.addEventListener('mousemove', function (e) { showTip(e, decodeURIComponent(el.dataset.tip)); });
-      el.addEventListener('mouseleave', hideTip);
-    });
-
-    $('hoursTable').innerHTML =
-      '<thead><tr><th>Hour (UTC)</th><th>Careers</th><th>Finished</th><th>Visits</th><th>New</th><th>Median active</th></tr></thead><tbody>' +
-      H.map(function (d) {
-        return '<tr><td>' + d.t.replace('T', ' ') + '</td><td class="num">' + d.careers + '</td><td class="num">' +
-          d.finished + '</td><td class="num">' + d.visits + '</td><td class="num">' + d.newVisits +
-          '</td><td class="num">' + d.medianActive + 's</td></tr>';
-      }).join('') + '</tbody>';
+    draw('day');
   })();
 
   // ---- days -------------------------------------------------------------

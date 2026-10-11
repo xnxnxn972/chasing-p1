@@ -271,8 +271,45 @@ function series(rows, bucketOf) {
   }));
 }
 
+/**
+ * The four grains the traffic chart can be read at.
+ *
+ * EVERY ONE IS BUILT FROM THE ROWS, not folded up from the hourly series,
+ * because two of the columns do not survive that fold:
+ *
+ *   visits        distinct visit_ids WITHIN a bucket. A visit that spans an
+ *                 hour boundary is in two hourly buckets, so summing them
+ *                 double-counts it.
+ *   medianActive  a median of medians is not a median.
+ *
+ * Re-bucketing the rows is cheap and exactly right; aggregating in the page
+ * would have produced two numbers that are quietly wrong, which is the sort
+ * of thing this project has already been caught by three times.
+ */
 const hourKey = (iso) => iso.slice(0, 13) + ':00';
 const dayKey = (iso) => iso.slice(0, 10);
+const monthKey = (iso) => iso.slice(0, 7);
+
+/** ISO weeks, labelled by the Monday they start on. */
+const weekKey = (iso) => {
+  const d = new Date(iso);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+};
+
+/**
+ * Is the newest bucket still filling?
+ *
+ * Computed rather than assumed. The old code hardcoded the day as partial,
+ * which is wrong on a day with no traffic at all: the last bucket is then
+ * yesterday, and hatching it says "today collapsed" about a complete day.
+ */
+function stillFilling(grain, lastKey, now) {
+  if (grain === 'hour') return now - Date.parse(lastKey + ':00Z') < 3600e3;
+  if (grain === 'day') return lastKey === new Date(now).toISOString().slice(0, 10);
+  if (grain === 'week') return lastKey === weekKey(new Date(now).toISOString());
+  return lastKey === new Date(now).toISOString().slice(0, 7);
+}
 
 /**
  * Careers played against a dev server. They are tagged env='dev' in the table,
@@ -306,12 +343,18 @@ function build(rows) {
   const counts = [...perVisit.values()].sort((a, b) => b - a);
   const outliers = outlierVisits(post, perVisit);
 
-  const hours = series(post, hourKey);
   const now = Date.now();
-  // The newest bucket is still filling; the page marks it rather than letting
-  // a partial hour read as a collapse.
-  const lastHourPartial = now - Date.parse(hours.at(-1).t + ':00Z') < 3600e3;
-  const lastDayPartial = true;
+  const grains = {
+    hour: series(post, hourKey),
+    day: series(post, dayKey),
+    week: series(post, weekKey),
+    month: series(post, monthKey)
+  };
+  const hours = grains.hour;
+  // The newest bucket of each grain is marked rather than left to read as a
+  // collapse.
+  const partial = {};
+  for (const [g, rows] of Object.entries(grains)) partial[g] = stillFilling(g, rows.at(-1).t, now);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -337,9 +380,10 @@ function build(rows) {
       ).length
     },
     hours,
-    days: series(post, dayKey),
-    lastHourPartial,
-    lastDayPartial,
+    days: grains.day,
+    weeks: grains.week,
+    months: grains.month,
+    partial,
     sources: rank(post, (r) => r._source),
     via: rank(post, (r) => r._via),
     countries: rank(post, (r) => countryName(r.geo_country), { limit: 14 }),
