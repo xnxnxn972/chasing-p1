@@ -515,28 +515,32 @@
 
     var GRAIN = {
       hour: {
-        rows: D.hours, pitch: 34, maxBar: 30,
+        // 547 buckets. At the old 34px pitch this was an 18,600px canvas -
+        // five screens of scrolling to cross a month. 10px keeps every bucket
+        // its own bar at a third of the width, and an 8px bar is still an
+        // easy hover target, which is the whole point of this grain.
+        rows: D.hours, pitch: 10, maxBar: 8, gap: 2,
         tick: function (d) { return d.t.slice(11, 13); },
         title: function (d) { return d.t.slice(5, 10) + ' ' + d.t.slice(11, 13) + ':00 UTC'; },
         caption: function (r) { return r[0].t.slice(0, 10) + ' → hour of day, UTC'; },
         colHead: 'Hour (UTC)', word: 'Hour', table: 'Hourly'
       },
       day: {
-        rows: D.days, pitch: 34, maxBar: 30,
+        rows: D.days, pitch: 34, maxBar: 30, gap: 5,
         tick: function (d) { return d.t.slice(5); },
         title: function (d) { return d.t; },
         caption: function (r) { return r[0].t + ' → ' + r[r.length - 1].t + ', UTC days'; },
         colHead: 'Day (UTC)', word: 'Day', table: 'Daily'
       },
       week: {
-        rows: D.weeks, pitch: 56, maxBar: 54,
+        rows: D.weeks, pitch: 56, maxBar: 54, gap: 5,
         tick: function (d) { return d.t.slice(5); },
         title: function (d) { return 'week of ' + d.t; },
         caption: function () { return 'ISO weeks, beginning Monday, UTC'; },
         colHead: 'Week beginning', word: 'Week', table: 'Weekly'
       },
       month: {
-        rows: D.months, pitch: 80, maxBar: 76,
+        rows: D.months, pitch: 80, maxBar: 76, gap: 5,
         tick: function (d) { return MON[+d.t.slice(5, 7) - 1]; },
         title: function (d) { return monthName(d.t); },
         caption: function () { return 'calendar months, UTC'; },
@@ -560,7 +564,7 @@
       var maxV = Math.max.apply(null, H.map(function (x) { return x.newVisits; }));
       var bw = (w - padL - padR) / H.length;
       // Capped, or two monthly buckets become two 300px slabs.
-      var iw = Math.max(3, Math.min(bw - 5, G.maxBar));
+      var iw = Math.max(2, Math.min(bw - G.gap, G.maxBar));
       var inset = (bw - iw) / 2;
       var parts = [];
 
