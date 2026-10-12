@@ -133,3 +133,27 @@
 .mg-footer a {
   color: var(--text-dim);
 }
+
+/*
+ * Where the game mounts.
+ *
+ * The prose around it is static HTML and paints immediately; the game arrives
+ * with the JS. Without a reserve the whole page below jumps down when React
+ * lands. The heights are approximations of the two stage sizes, not exact -
+ * the point is to stop the shift being noticeable, not to predict it.
+ */
+/*
+ * `#root.mg-mount`, not `.mg-mount`. global.css carries
+ * `html, body, #root { min-height: 100% }` from when #root WAS the page, and
+ * an id beats a class, so the plain class selector was silently ignored and
+ * the reserve never applied. On these pages #root is a div in the middle of
+ * the page and 100% of an auto-height parent is zero, which is exactly the
+ * jump this is meant to prevent.
+ */
+#root.mg-mount {
+  min-height: 440px;
+}
+
+@media (min-width: 620px) {
+  #root.mg-mount { min-height: 520px; }
+}

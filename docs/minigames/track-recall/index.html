@@ -49,14 +49,87 @@
         "publisher": { "@type": "Organization", "name": "Chasing P1", "url": "https://playchasingp1.com/" }
       }
     </script>
-    <script type="module" crossorigin src="../../assets/trackRecall-xJW_uZDh.js"></script>
-    <link rel="modulepreload" crossorigin href="../../assets/global-CoVaHIdx.js">
-    <link rel="modulepreload" crossorigin href="../../assets/TrackRecall-Ch2foKXK.js">
+    <script type="module" crossorigin src="../../assets/trackRecall-B2Pbntw5.js"></script>
+    <link rel="modulepreload" crossorigin href="../../assets/global-DuxVnDbc.js">
+    <link rel="modulepreload" crossorigin href="../../assets/TrackRecall-C6UbSfYZ.js">
     <link rel="stylesheet" crossorigin href="../../assets/global-DnqHfY6R.css">
     <link rel="stylesheet" crossorigin href="../../assets/TrackRecall-D0fcJ4Zd.css">
-    <link rel="stylesheet" crossorigin href="../../assets/standalone-Bu0hoE7S.css">
+    <link rel="stylesheet" crossorigin href="../../assets/standalone-CYdjUL0f.css">
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      THE COPY LIVES HERE, NOT IN main.tsx.
+
+      This page used to be `<div id="root"></div>` and nothing else: every
+      word was rendered by React. Google does run JS, but only on a second
+      pass that is slower and lower priority than parsing HTML, and the
+      evidence on this site was plain - the static articles take search
+      traffic while the two minigame pages had 2 search arrivals between them
+      across 105 loads.
+
+      So the prose is served as HTML and React now mounts only the game, into
+      the #root below. Nothing is rendered twice: main.tsx renders the
+      component and nothing else.
+    -->
+    <div class="mg-page">
+      <div class="mg-bar">
+        <a href="/minigames/">&larr; Driver training</a>
+        <span>Track Recall</span>
+      </div>
+
+      <h1 class="mg-h1">Draw It From Memory</h1>
+      <p class="mg-lede">
+        Five seconds to study the circuit. One lap traced from the start line, the way
+        it is raced. Then ten seconds to draw it yourself.
+      </p>
+
+      <!-- The game mounts here. The reserved height is approximate and only
+           there to stop the prose below jumping when React arrives. -->
+      <div id="root" class="mg-mount"></div>
+
+      <div class="mg-notes">
+        <h2>Why the lap is animated</h2>
+        <p>
+          A circuit is not just a shape. It has a start line and a direction, and a
+          driver carries both. Watching the lap traced turns this from a drawing test
+          into a memory test of the route, which is why <strong>Interlagos</strong> is
+          in the pool: it is the only one of these six run anti-clockwise.
+        </p>
+        <h2>How it is scored</h2>
+        <p>
+          Generously, and on shape alone. Before comparing, both loops are stripped of
+          where you drew, how big, which direction round, where you started and how fast
+          your hand moved. A few degrees of tilt is forgiven; ninety is not, because you
+          were shown which way up it goes.
+        </p>
+        <p>
+          A wobbly but recognisable Suzuka scores well. A different circuit scores about
+          thirty, and a circle about twenty.
+        </p>
+      </div>
+
+      <div class="mg-cta">
+        <h2>The rest of the career is decisions</h2>
+        <p>
+          Knowing the track is the easy part. In <strong>Chasing P1</strong> you start at
+          sixteen and find out how far your choices take you.
+        </p>
+        <a class="mg-btn" href="/">Play Chasing P1 &rarr;</a>
+      </div>
+
+      <div class="mg-more">
+        <h3>More training</h3>
+        <p><a href="/minigames/lights-out/">Lights Out: the F1 reaction time test</a></p>
+        <p>
+          <a href="/chances-of-becoming-an-f1-driver/">
+            Chances of becoming an F1 driver: the honest numbers
+          </a>
+        </p>
+      </div>
+
+      <footer class="mg-footer">
+        <a href="/">Chasing P1</a>, a decision-driven Formula 1 career simulation.
+      </footer>
+    </div>
   </body>
 </html>
