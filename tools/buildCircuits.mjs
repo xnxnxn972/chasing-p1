@@ -77,7 +77,28 @@ const VENUES = [
 
   { id: 'interlagos', file: 'RaceCircuitInterlagos.svg', name: 'Interlagos', country: 'Brazil',
     start: [0.40, 0.06], clockwise: false, rotate: 60,
-    fact: 'One of the few run anti-clockwise, and the whole lap climbs and falls across a natural bowl.' }
+    fact: 'One of the few run anti-clockwise, and the whole lap climbs and falls across a natural bowl.' },
+
+  /**
+   * Austin needs no `stroke`: the file styles everything through `style=`
+   * rather than a stroke attribute, so the colour filter would match nothing.
+   * It does not need one either - the lap is 2,556 characters of path data
+   * against 276 for the next longest, so "longest wins" is unambiguous.
+   *
+   * START AND DIRECTION COME FROM THE CORNER NUMBERS IN THE FILE, not from
+   * looking at it. Resolving each numbered marker's transform and finding the
+   * nearest point on the lap puts turn 1 at index 523 and turn 20 at 592, with
+   * the numbers DESCENDING along the path - so the path is drawn against the
+   * racing direction and gets reversed here.
+   *
+   * `start` sits just after turn 20 at the near end of the main straight,
+   * where the line actually is - the first attempt put it two thirds of the
+   * way along and left only 4 of 80 points before turn 1, against a straight
+   * that is 14% of this lap.
+   */
+  { id: 'cota', file: 'Austin_Formula_One_circuit.svg', name: 'Circuit of the Americas', country: 'United States',
+    start: [0.18, 0.95], clockwise: false,
+    fact: 'The climb to the first corner is about forty metres, steep enough that the apex is out of sight on the way up.' }
 ];
 
 const TARGET = 80;

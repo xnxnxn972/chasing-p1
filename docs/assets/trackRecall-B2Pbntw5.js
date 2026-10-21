@@ -1,1 +1,0 @@
-import{k as e,o as r,j as t,r as o}from"./global-DuxVnDbc.js";import{T as s}from"./TrackRecall-C6UbSfYZ.js";/* empty css                   */e();r.createRoot(document.getElementById("root")).render(t.jsx(o.StrictMode,{children:t.jsx(s,{mode:"standalone"})}));
