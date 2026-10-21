@@ -18,7 +18,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { isBotReferrer, outlierVisits } from './exclusions.mjs';
+import { automationVisitIds, isBotReferrer, outlierVisits } from './exclusions.mjs';
 import { cleanPlayerLabel } from './nameFilter.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -329,9 +329,15 @@ function isDev(row) {
 }
 
 function build(rows) {
-  const post = rows.filter(
+  const human = rows.filter(
     (r) => Date.parse(r.created_at) >= POST_AT && !isDev(r) && !isBotReferrer(r.referrer)
   );
+  // Scripts that arrive with no referrer at all. Judged on how the visit
+  // behaved, because volume alone does not separate them from a marathon
+  // player - see exclusions.mjs.
+  const autoIds = automationVisitIds(human);
+  const post = human.filter((r) => !autoIds.has(r.visit_id));
+  const autoExcluded = human.length - post.length;
   for (const r of post) {
     r._source = sourceOf(r);
     r._via = viaOf(r);
@@ -377,7 +383,9 @@ function build(rows) {
       devExcluded: rows.filter((r) => Date.parse(r.created_at) >= POST_AT && isDev(r)).length,
       botExcluded: rows.filter(
         (r) => Date.parse(r.created_at) >= POST_AT && !isDev(r) && isBotReferrer(r.referrer)
-      ).length
+      ).length,
+      autoExcluded,
+      autoVisits: autoIds.size
     },
     hours,
     days: grains.day,
@@ -437,7 +445,8 @@ writeFileSync(htmlOut, html);
 writeFileSync(join(here, '..', 'dashboard.data.json'), JSON.stringify(data, null, 2));
 console.log(
   `fetched ${rows.length} rows (${data.totals.prePost} pre-post, ` +
-    `${data.totals.devExcluded} dev, ${data.totals.botExcluded} bot) -> ${data.totals.careers} careers, ` +
+    `${data.totals.devExcluded} dev, ${data.totals.botExcluded} bot, ${data.totals.autoExcluded} scripted` +
+    ` in ${data.totals.autoVisits} visits) -> ${data.totals.careers} careers, ` +
     `${data.totals.visits} visits, ${data.hours.length} hourly buckets`
 );
 if (data.outliers.length) {

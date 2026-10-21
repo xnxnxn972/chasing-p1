@@ -27,7 +27,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { isBotReferrer } from './exclusions.mjs';
+import { automationVisitIds, isBotReferrer } from './exclusions.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -88,7 +88,11 @@ const pct = (a, b) => (b ? `${((100 * a) / b).toFixed(1)}%` : '—');
 const rule = (s) => console.log(`\n${s}\n${'-'.repeat(s.length)}`);
 
 const loads = await fetchAll('cp_loads_admin');
-const sessions = await fetchAll('cp_sessions_admin');
+const allSessions = await fetchAll('cp_sessions_admin');
+// The same scripted visits the dashboard drops, so READ TO PLAY does not
+// credit an article with careers a script opened.
+const scripted = automationVisitIds(allSessions);
+const sessions = allSessions.filter((s) => !scripted.has(s.visit_id));
 console.log(`fetched ${loads.length} loads, ${sessions.length} careers`);
 
 // Real human traffic to the GAME. See the three filters in the header comment.
@@ -147,4 +151,5 @@ if (!fromArticle.length) {
 rule('EXCLUDED');
 console.log(`  our own testing (dev)   ${loads.filter((l) => l.dev).length}`);
 console.log(`  known automation       ${loads.filter((l) => isBotReferrer(l.referrer)).length}`);
+console.log(`  scripted careers       ${allSessions.length - sessions.length} in ${scripted.size} visits`);
 console.log(`  self-identifying bots   ${loads.filter((l) => l.webdriver).length}`);

@@ -31,16 +31,68 @@ export function isBotReferrer(referrer) {
 }
 
 /**
- * The durable half of the problem. The referrer rule above fixes the instance
- * we found; it does nothing about the next scraper, which will arrive with a
- * different referrer or none at all. Rather than guess at a threshold and
- * silently discard careers, this only *reports* visits far outside human range
- * so the next one is noticed in the same week rather than after it has been
- * quoted in a decision.
+ * The durable half of the problem: the next scraper arrives with a different
+ * referrer, or none at all.
  *
- * 80 is deliberately above the highest career count ever recorded from traffic
- * we believe was real (67, on 17 September), so a genuine marathon session is
- * flagged for a look rather than binned.
+ * WHY VOLUME IS THE WRONG AXIS. This used to be a report-only threshold of 80
+ * careers, justified by "the highest count ever recorded from traffic we
+ * believe was real is 67". That premise was wrong. Listing every visit of 25+
+ * careers against its median active time and finish rate shows two populations
+ * that do not overlap:
+ *
+ *     185 careers    4s   15% finished   yandex
+ *      95            9s    6%            no referrer
+ *      73            8s   12%
+ *      67            6s   18%   <- the "real" record the old comment cited
+ *      43            8s   12%
+ *     ---------------------------------------------- gap
+ *      25           21s   44%
+ *      45           25s   49%
+ *      66           98s   85%
+ *      61          105s  100%
+ *      53          125s  100%
+ *
+ * Nobody opens ninety careers and spends nine seconds in each. The dropped set
+ * tops out at 19s and 31%; the nearest kept visit is 21s and 44%. Requiring
+ * BOTH conditions means a single borderline number cannot bin a real player.
+ *
+ * THE CAREER FLOOR IS A JUDGEMENT, NOT A BOUNDARY. The distribution is smooth
+ * below 25 (floors of 10/15/20/25/30 drop 10.4/9.1/8.2/6.9/6.3% of careers),
+ * so 25 is the conservative end of a continuum, chosen because nobody opens
+ * twenty-five careers by accident while a handful of quick bounces is normal.
+ * Anything under the floor stays in, and outlierVisits() still reports what
+ * slips past.
+ */
+export const AUTO_MIN_CAREERS = 25;
+export const AUTO_MAX_MEDIAN_ACTIVE = 20;
+export const AUTO_MAX_FINISH_PCT = 35;
+
+/** The rows of ONE visit. True when it behaves like a script, not a player. */
+export function isAutomationVisit(visitRows) {
+  const n = visitRows.length;
+  if (n < AUTO_MIN_CAREERS) return false;
+  const act = visitRows.map((r) => r.active_s || 0).sort((a, b) => a - b);
+  const median = act[Math.floor(n / 2)];
+  if (median > AUTO_MAX_MEDIAN_ACTIVE) return false;
+  const finishPct = (100 * visitRows.filter((r) => r.finished).length) / n;
+  return finishPct <= AUTO_MAX_FINISH_PCT;
+}
+
+/** Visit ids to drop, from every row in the window. Counted, never silent. */
+export function automationVisitIds(rows) {
+  const byVisit = new Map();
+  for (const r of rows) {
+    if (!byVisit.has(r.visit_id)) byVisit.set(r.visit_id, []);
+    byVisit.get(r.visit_id).push(r);
+  }
+  const ids = new Set();
+  for (const [id, vr] of byVisit) if (isAutomationVisit(vr)) ids.add(id);
+  return ids;
+}
+
+/**
+ * Still reported, for anything the rule above does not catch: a scraper that
+ * paces itself, or a genuine marathon worth knowing about.
  */
 export const OUTLIER_CAREERS = 80;
 
