@@ -29,6 +29,21 @@ const ANON_KEY =
 
 /** The Reddit post that started the traffic. Everything before it is our own testing. */
 const POST_AT = Date.parse('2026-09-13T08:40:00Z');
+
+/**
+ * THE DAY `visits` STARTED MEANING PEOPLE.
+ *
+ * Until this deploy visit_id was minted on every page load, so a visit
+ * counted a navigation. One player moving between the game and /minigames/
+ * logged four "visits" in ten seconds. From here it persists for a sitting.
+ *
+ * The chart marks it because the step down in visits that follows is this
+ * change and not a loss of traffic, and without a line on the page that is
+ * exactly the kind of cliff somebody spends an afternoon investigating.
+ * Careers, hours played and finish rate cross the line unaffected: none of
+ * them ever depended on visit_id.
+ */
+const VISIT_FIX_AT = Date.parse('2026-10-29T07:00:00Z');
 const PAGE = 1000; // PostgREST caps a single response at 1000 rows.
 
 /**
@@ -362,9 +377,33 @@ function build(rows) {
   const partial = {};
   for (const [g, rows] of Object.entries(grains)) partial[g] = stillFilling(g, rows.at(-1).t, now);
 
+  // Where the changeover sits, per grain: the bucket that CONTAINS it, plus
+  // how far through that bucket it falls.
+  //
+  // The fraction is the point. A monthly chart marked at the left edge of
+  // October would claim the whole month was post-change, when the change
+  // landed on the 29th — the marker would misreport the very thing it exists
+  // to explain. Keys come from the same helpers that bucketed the rows, so
+  // the index always resolves against a bucket the chart really has.
+  const fixIso = new Date(VISIT_FIX_AT).toISOString();
+  const fixDate = new Date(VISIT_FIX_AT);
+  const HOUR_MS = 3600e3;
+  const DAY_MS = 24 * HOUR_MS;
+  const monthStart = Date.UTC(fixDate.getUTCFullYear(), fixDate.getUTCMonth(), 1);
+  const monthNext = Date.UTC(fixDate.getUTCFullYear(), fixDate.getUTCMonth() + 1, 1);
+  const through = (startMs, spanMs) => (VISIT_FIX_AT - startMs) / spanMs;
+  const visitFix = {
+    at: fixIso,
+    hour: { key: hourKey(fixIso), frac: through(Date.parse(fixIso.slice(0, 13) + ':00:00Z'), HOUR_MS) },
+    day: { key: dayKey(fixIso), frac: through(Date.parse(fixIso.slice(0, 10) + 'T00:00:00Z'), DAY_MS) },
+    week: { key: weekKey(fixIso), frac: through(Date.parse(weekKey(fixIso) + 'T00:00:00Z'), 7 * DAY_MS) },
+    month: { key: monthKey(fixIso), frac: through(monthStart, monthNext - monthStart) }
+  };
+
   return {
     generatedAt: new Date().toISOString(),
     postAt: new Date(POST_AT).toISOString(),
+    visitFix,
     totals: {
       careers: post.length,
       visits: visits.size,

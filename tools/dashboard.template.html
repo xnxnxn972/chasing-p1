@@ -170,6 +170,13 @@
   .bar.flagged { fill: var(--flag); }
   .grid { stroke: var(--rule-soft); stroke-width: 1; }
   .axisline { stroke: var(--rule); stroke-width: 1; }
+  /* The day the visit metric changed meaning. Dashed and dim: it is an
+     annotation on the data, not a series in it, and it must never read as
+     another bar. The wide transparent sibling is the hover target, because
+     a 1px line cannot be pointed at. */
+  .epoch { stroke: var(--flag); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .75; }
+  .epoch-hit { stroke: transparent; stroke-width: 12; cursor: help; }
+  text.epoch-label { fill: var(--flag); opacity: .85; font-size: 9px; }
   .hit { fill: transparent; cursor: crosshair; }
   .hit:hover + .bar, .bar:hover { filter: brightness(1.25); }
 
@@ -217,6 +224,9 @@
   .key { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-dim); }
   .key b { width: 11px; height: 11px; display: block; background: var(--accent); }
   .key.dim b { background: var(--accent-dim); opacity: .6; }
+  /* A swatch would read as a fifth series. This is a dashed rule, matching
+     the annotation it stands for. */
+  .key.epoch-key b { width: 13px; height: 0; border-top: 1.5px dashed var(--flag); opacity: .85; background: none; }
   .key.hatch b { background: var(--raised); border: 1px solid var(--rule);
     background-image: repeating-linear-gradient(45deg, var(--ink-faint) 0 1px, transparent 1px 4px); }
 
@@ -323,6 +333,7 @@
           <span class="key"><b></b>Careers started</span>
           <span class="key dim"><b></b>New visits</span>
           <span class="key hatch"><b></b><span id="partialLabel">Day still filling</span></span>
+          <span class="key epoch-key"><b></b>Visit metric changed</span>
         </div>
         <!-- Daily by default: an hourly view of four weeks is 500 bars nobody
              can read, and the question this panel answers most often is "how
@@ -615,6 +626,35 @@
         '" text-anchor="end">0</text>');
       parts.push('<text class="axis" x="' + (padL - 8) + '" y="' + (padT + topH + gapY + 3.5) +
         '" text-anchor="end">' + maxV + '</text>');
+      // THE DAY A VISIT STOPPED MEANING A PAGE LOAD. Pushed after the bars so
+      // it paints over them, and placed a fraction of the way through its
+      // bucket rather than at the edge, or the monthly view would mark the
+      // 1st of October for a change that happened on the 29th.
+      var fix = D.visitFix && D.visitFix[key];
+      if (fix) {
+        var fi = -1;
+        for (var fk = 0; fk < H.length; fk++) { if (H[fk].t >= fix.key) { fi = fk; break; } }
+        // fi === 0 would print the line on top of the y-axis, where it reads
+        // as part of the frame; -1 means the change is outside this window.
+        if (fi > 0) {
+          var fx = padL + (fi + fix.frac) * bw;
+          var fy1 = padT + topH + gapY + subH;
+          var fixTip = '<b>' + fix.key.slice(0, 10) + ' &middot; a visit became a sitting</b><br>' +
+            'Before this line, visit_id was new on every page load, so one person' +
+            '<br>moving between the game and the minigames counted several times.' +
+            '<br><br>Visit numbers either side are <b>not comparable</b>. Careers, hours' +
+            '<br>played and finish rate are unaffected — none used visit_id.';
+          parts.push('<line class="epoch" x1="' + fx + '" y1="' + padT + '" x2="' + fx + '" y2="' + fy1 + '"/>');
+          parts.push('<line class="epoch-hit" x1="' + fx + '" y1="' + padT + '" x2="' + fx + '" y2="' + fy1 +
+            '" data-tip="' + encodeURIComponent(fixTip) + '"/>');
+          // Flipped to the left of the line when it would otherwise run off
+          // the right edge, which it does on every grain with few buckets.
+          var farRight = fx > w - padR - 112;
+          parts.push('<text class="epoch-label" x="' + (farRight ? fx - 4 : fx + 4) + '" y="' + (padT + 8) +
+            '" text-anchor="' + (farRight ? 'end' : 'start') + '">visits = sittings</text>');
+        }
+      }
+
       parts.push('<text x="' + padL + '" y="' + (h - 6) + '" text-anchor="start" ' +
         'style="fill:var(--ink-faint)">' + G.caption(H) + '</text>');
 
