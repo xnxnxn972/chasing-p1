@@ -132,8 +132,12 @@ if (!articles.length) {
   }
 }
 
-// A reader who clicks through starts a NEW visit, so the two cannot be joined.
-// The conversion signal is the referrer on the game side.
+// Historically a reader who clicked through started a NEW visit, so the two
+// sides could not be joined and the referrer on the game side was the only
+// conversion signal. Since visit_id persists across navigation (see
+// VISIT_KEY in src/game/telemetry.ts) a join on visit_id works for rows
+// written after that change; the referrer is kept because it is the only
+// thing that also reads the archive.
 rule('READ TO PLAY  (careers whose referrer was one of our own articles)');
 const fromArticle = sessions.filter(
   (s) => s.referrer && /^https:\/\/playchasingp1\.com\/.+-/.test(s.referrer)

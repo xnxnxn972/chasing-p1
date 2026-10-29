@@ -30,7 +30,11 @@ const LOAD_RPC = `${SUPABASE_URL}/rest/v1/rpc/cp_log_load`;
 export interface SessionRow {
   /** Unique per CAREER — one row per career played. */
   session_id: string;
-  /** Stable for one page load, so careers from one visit can be grouped. */
+  /**
+   * Stable for one SITTING — across page loads and across the game, the hub
+   * and the minigames — so careers from one visit can be grouped and a visit
+   * counts a person rather than a navigation. See VISIT_KEY below.
+   */
   visit_id: string;
   /** 1 for the first career of the visit, 2 for the second, and so on. */
   career_index: number;
@@ -252,12 +256,74 @@ function activeSeconds(): number {
   return Math.round((activeMs + (visibleSince ? Date.now() - visibleSince : 0)) / 1000);
 }
 
-const visitId = newId();
+/**
+ * WHICH SITTING THIS IS.
+ *
+ * `visit_id` used to be minted on every page load, so it counted navigations
+ * and called them people. Tracing one UK evening showed 61 page loads across
+ * 61 distinct visit ids: a single player hopping between the game and
+ * /minigames/ logged four separate "visits" in ten seconds, and one sitting
+ * of about seventy minutes logged seventeen. Every visit-based number was
+ * really a page-load number wearing the wrong name.
+ *
+ * A visit is now a SITTING. The id is reused until the browser has gone
+ * IDLE_MS without a write, which is the convention analytics tools use, and
+ * it lives in localStorage so it survives navigation between the game, the
+ * hub and the standalone minigame pages — all of which load this module.
+ *
+ * Storage can fail: private windows, blocked site data, quota. In every one
+ * of those it degrades to exactly the old behaviour, a fresh id for this page
+ * load, because a visitor who blocks site data is still a real visitor.
+ */
+const VISIT_KEY = 'cp1.visit.v1';
+const VISIT_IDLE_MS = 30 * 60 * 1000;
+
+interface VisitRecord {
+  id: string;
+  /** Last write, epoch ms. The sitting ends IDLE_MS after this. */
+  ts: number;
+  /** Careers logged so far in this sitting, so career_index keeps counting. */
+  careers: number;
+}
+
+function loadVisit(): VisitRecord {
+  const fresh: VisitRecord = { id: newId(), ts: Date.now(), careers: 0 };
+  try {
+    const raw = localStorage.getItem(VISIT_KEY);
+    if (!raw) return fresh;
+    const saved = JSON.parse(raw) as Partial<VisitRecord>;
+    if (typeof saved.id !== 'string' || typeof saved.ts !== 'number') return fresh;
+    if (Date.now() - saved.ts > VISIT_IDLE_MS) return fresh;
+    return {
+      id: saved.id,
+      ts: Date.now(),
+      careers: typeof saved.careers === 'number' ? saved.careers : 0
+    };
+  } catch {
+    return fresh;
+  }
+}
+
+/** Keep the sitting alive. Called on every write, not on a timer. */
+function touchVisit(): void {
+  visit.ts = Date.now();
+  try {
+    localStorage.setItem(VISIT_KEY, JSON.stringify(visit));
+  } catch {
+    // Unwritable storage means this page load stands alone, which is the
+    // behaviour every row before this change already had.
+  }
+}
+
+const visit = loadVisit();
+const visitId = visit.id;
 
 const row: SessionRow = {
   session_id: newId(),
   visit_id: visitId,
-  career_index: 0,
+  // Not zero when the sitting is already under way: a player who came back
+  // from the minigames hub is on their Nth career, not their first.
+  career_index: visit.careers,
   env: typeof location !== 'undefined' && /^(localhost|127\.|\[?::1)/.test(location.hostname) ? 'dev' : 'prod',
   started_at: new Date(started).toISOString(),
   duration_s: 0,
@@ -348,6 +414,9 @@ async function push(keepalive = false): Promise<void> {
   if (suppressed || !engaged) return;
   row.duration_s = Math.round((Date.now() - rowStarted) / 1000);
   row.meta.active_s = activeSeconds();
+  // Every write is proof the sitting is still going, so the idle clock is
+  // measured from here rather than from page load.
+  touchVisit();
 
   // Snapshot synchronously: `push` is async and a new career can begin while
   // it is in flight, which would otherwise send the wrong row's data.
@@ -434,6 +503,10 @@ function logLoad(): void {
           meta: { ...LANDING_TAGS }
         }
       });
+      // A load is the one write that happens without the visitor doing
+      // anything, and it is what keeps a sitting alive across a navigation
+      // the player makes without touching the next page.
+      touchVisit();
       void fetch(LOAD_RPC, { method: 'POST', headers: headers(), body, keepalive: true }).catch(() => {});
     } catch {
       /* a failed count is not worth failing a page load over */
@@ -530,6 +603,7 @@ export function trackCareerStart(setup: {
   // Second and later careers of a visit start their own row.
   if (row.career_index > 0) startNewRow();
   row.career_index += 1;
+  visit.careers = row.career_index;
   row.careers_started = 1;
   row.driver_name = setup.name.slice(0, 60);
   row.driver_number = setup.number;

@@ -1,0 +1,1 @@
+import{k as e,o,j as t,r}from"./global-Dhc4xPd5.js";import{L as s}from"./LightsOut-CM3K9Mgg.js";/* empty css                   */e();o.createRoot(document.getElementById("root")).render(t.jsx(r.StrictMode,{children:t.jsx(s,{mode:"standalone"})}));
