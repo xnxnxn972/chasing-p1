@@ -352,13 +352,43 @@
         // at the page, and it writes a junk `page` value that no filter in
         // tools/loads.mjs expects.
         if (location.protocol !== 'https:' && location.protocol !== 'http:') return;
+
+        // ONE SITTING, ONE VISIT ID. This record is shared with the game's own
+        // telemetry (VISIT_KEY in src/game/telemetry.ts) so that a reader who
+        // clicks through to the game is the same visitor, not a new one. These
+        // pages minted a fresh id per load until 30 Oct 2026, which is why
+        // every article read used to look like a stranger arriving.
+        //
+        // It sits ABOVE the dev and bot guards on purpose: the game's module
+        // also builds its visit record before deciding whether to log, so the
+        // two stay in step, and ?dev=1 can then be used to check that a
+        // sitting survives a navigation without writing a single row.
+        var VISIT_KEY = 'cp1.visit.v1';
+        var VISIT_IDLE_MS = 30 * 60 * 1000;
+        var visit = { id: '', ts: Date.now(), careers: 0 };
+        try { visit.id = crypto.randomUUID(); }
+        catch (e) { visit.id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+        try {
+          var raw = localStorage.getItem(VISIT_KEY);
+          var saved = raw ? JSON.parse(raw) : null;
+          if (saved && typeof saved.id === 'string' && typeof saved.ts === 'number' &&
+              Date.now() - saved.ts <= VISIT_IDLE_MS) {
+            visit.id = saved.id;
+            // Carry the career count untouched. Reading an article is not a
+            // career, and resetting it here would restart career_index for the
+            // rest of the sitting.
+            visit.careers = typeof saved.careers === 'number' ? saved.careers : 0;
+          }
+          localStorage.setItem(VISIT_KEY, JSON.stringify(visit));
+        } catch (e) {
+          // Unwritable storage means this page stands alone, which is exactly
+          // the behaviour every row written before this change already had.
+        }
+        var id = visit.id;
         try { if (localStorage.getItem('cp1.dev') === '1') return; } catch (e) {}
         var ua = navigator.userAgent || '';
         if (navigator.webdriver === true) return;
         if (/bot|crawl|spider|slurp|headless|phantom|preview|lighthouse/i.test(ua)) return;
-        var id;
-        try { id = crypto.randomUUID(); }
-        catch (e) { id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
         // One page, one `page` value. Both /slug/ and /slug/index.html serve
         // this file, so without this the same article splits across two rows
         // in every report and neither one is the real total.
