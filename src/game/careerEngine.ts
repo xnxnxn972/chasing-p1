@@ -41,7 +41,7 @@ import {
   recentFormScore
 } from './contractEngine';
 import { applyDecision, nextDecision, nextRedFlag, resetDecisionCache } from './decisionEngine';
-import { isCollectable } from '../data/redFlags';
+import { RED_FLAG_RETURNS, isCollectable, returnableMarker } from '../data/redFlags';
 import { checkAchievements } from './achievementEngine';
 
 export const START_YEAR = 2026;
@@ -174,6 +174,18 @@ export function chooseDecisionOption(state: GameState, optionId: string): GameSt
       aftermath: taken.aftermath,
       collects: collects >= 0 ? collects : undefined
     });
+
+    // Set the consequence going. Two to four seasons is long enough that
+    // the player has stopped expecting it and short enough that a career
+    // of ordinary length still gets to see it.
+    const marker = returnableMarker(taken.leaves);
+    if (marker) {
+      next.pendingReturn = {
+        season: next.history.length + 1 + 2 + Math.floor(rng.next() * 3),
+        marker,
+        from: log.length - 1
+      };
+    }
   }
   next.decisionsUsed += 1;
   next.rngState = rng.snapshot();
@@ -445,6 +457,46 @@ function decisionOrMinigame(
   return nextDecision(state, rng, slot);
 }
 
+/**
+ * The news beat a red flag set up, if this is its season.
+ *
+ * It applies its own effect and writes the thread's second beat, because
+ * there is no choice to make: the player reads what happened and carries
+ * on. Returns null on every other season, which is almost all of them.
+ */
+function redFlagReturn(state: GameState): PendingStep | null {
+  const due = state.pendingReturn;
+  if (!due) return null;
+  const season = state.history.length + 1;
+  if (season < due.season) return null;
+
+  const scene = RED_FLAG_RETURNS[due.marker];
+  state.pendingReturn = undefined;
+  if (!scene) return null;
+
+  const log = state.redFlagLog ?? (state.redFlagLog = []);
+  const origin = log[due.from];
+  const years = origin ? Math.max(1, state.year - origin.year) : 1;
+
+  scene.apply(state);
+  log.push({
+    year: state.year,
+    title: scene.title,
+    line: scene.line,
+    tags: [],
+    aftermath: scene.aftermath,
+    collects: origin ? due.from : undefined
+  });
+
+  return {
+    kind: 'news',
+    tag: scene.tag,
+    title: scene.title,
+    body: scene.body(years, origin?.title ?? ''),
+    continueLabel: 'Continue'
+  };
+}
+
 /** Hard ceiling on a stat earned from a minigame, so a career cannot be farmed. */
 export const RACECRAFT_CAP = 100;
 
@@ -486,6 +538,15 @@ function step(state: GameState): GameState {
         break;
       }
       case 'preseason': {
+        // Guaranteed rather than budgeted: it is not a question, and a
+        // consequence that only lands when a decision slot happens to be
+        // free is a consequence that half of careers never see.
+        const returned = redFlagReturn(state);
+        if (returned) {
+          state.pending = returned;
+          state.cursor = 'midseason';
+          break;
+        }
         if (canDecide(state) && rng.chance(0.36)) {
           state.pending = decisionOrMinigame(state, rng, 'preseason');
         }

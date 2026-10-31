@@ -1,7 +1,7 @@
 import type { DecisionEvent } from './decisionModel';
 import { bond, currentTeam, form, isF1, market, money, rel, rep, stats } from './decisionModel';
 import type { DecisionContext } from './decisionModel';
-import type { Team } from '../game/types';
+import type { GameState, Team } from '../game/types';
 
 /**
  * RED FLAGS. Twice a career, everything stops.
@@ -809,3 +809,137 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
     })
   }
 ];
+
+/**
+ * WHAT COMES BACK, and when.
+ *
+ * One red flag a career leaves nothing to collect it, so the collection is
+ * not another red flag — it is an ordinary news beat two to four seasons
+ * later, with no board and no choice. The player is told nothing in
+ * between, which is the whole arrangement: a marker is left, the career
+ * carries on, and then one season it simply arrives.
+ *
+ * Keyed by the marker rather than by the card, because what comes back is
+ * the KIND of thing that was left. A secret surfaces, a debt is settled, a
+ * famous afternoon is re-run. The card it came from is named in the body
+ * so the player cannot miss which choice this is about.
+ */
+export interface RedFlagReturn {
+  tag: string;
+  title: string;
+  /** `years` is how long it sat there; `from` is the situation it came from. */
+  body: (years: number, from: string) => string;
+  /** The line the retirement screen draws under the thread. */
+  aftermath: string;
+  /** Past tense, for the thread's second beat. */
+  line: string;
+  apply: (state: GameState) => void;
+}
+
+const yearsAgo = (n: number) => (n === 1 ? 'last season' : `${n} seasons ago`);
+
+export const RED_FLAG_RETURNS: Record<string, RedFlagReturn> = {
+  secret: {
+    tag: 'Thursday',
+    title: 'It gets out',
+    body: (y) =>
+      `Somebody has finally put it in print: the meeting you took ${yearsAgo(
+        y
+      )}, the one nobody was supposed to know about. Your team principal read it before you did.`,
+    line: 'It got out.',
+    aftermath: 'They never quite trusted you again after that Thursday.',
+    apply: (s) => {
+      bond(s, -14);
+      rep(s, -4);
+    }
+  },
+  feud: {
+    tag: 'Silly season',
+    title: 'He has not forgotten',
+    body: (y) =>
+      `He has a say in a seat you wanted, and a long memory for what you did ${yearsAgo(
+        y
+      )}. He mentions it to people who ask about you.`,
+    line: 'It cost you a seat you wanted.',
+    aftermath: 'A door closed quietly, and nobody told you it was that corner.',
+    apply: (s) => {
+      market(s, -6);
+      bond(s, -4);
+    }
+  },
+  outspoken: {
+    tag: 'The paddock',
+    title: 'It follows you into the room',
+    body: (y) =>
+      `A principal you have never met opens by mentioning what you said ${yearsAgo(
+        y
+      )}. He is smiling when he says it. It is not a compliment.`,
+    line: 'It followed you into every room.',
+    aftermath: 'You were the one who says things, for the rest of it.',
+    apply: (s) => {
+      market(s, -5);
+      rep(s, 3);
+    }
+  },
+  owed: {
+    tag: 'December',
+    title: 'They settle up',
+    body: (y) =>
+      `Nobody wrote it down, but they remembered. What you did not make a fuss about ${yearsAgo(
+        y
+      )} is on the table in this year's talks, and it is worth something.`,
+    line: 'They paid it back in the end.',
+    aftermath: 'The thing you swallowed turned out to be worth money.',
+    apply: (s) => {
+      money(s, 1.4);
+      bond(s, 8);
+    }
+  },
+  owned: {
+    tag: 'Obligations',
+    title: 'The sponsor wants more',
+    body: (y) =>
+      `The money that secured your seat ${yearsAgo(
+        y
+      )} came with a clause nobody read out. They would like the eleven days a year to be twenty.`,
+    line: 'The money kept asking.',
+    aftermath: 'You spent more of that career in a marquee than you meant to.',
+    apply: (s) => {
+      market(s, 6);
+      bond(s, -4);
+    }
+  },
+  famous: {
+    tag: 'The long piece',
+    title: 'They are still showing it',
+    body: (y) =>
+      `A crew has spent a month on what you did ${yearsAgo(
+        y
+      )}. For one week you are that driver again, to everybody who watches it.`,
+    line: 'They were still showing it years later.',
+    aftermath: 'Whatever else the career was, people remembered that afternoon.',
+    apply: (s) => {
+      rep(s, 8);
+      market(s, 8);
+    }
+  },
+  blamed: {
+    tag: 'The paddock',
+    title: 'The montage',
+    body: (y) =>
+      `The lap you threw away ${yearsAgo(
+        y
+      )} is in a montage this weekend, and a rival's engineer finds a way to mention it in the press conference.`,
+    line: 'It was in every montage after that.',
+    aftermath: 'One lap did more to your name than a hundred clean ones.',
+    apply: (s) => {
+      rep(s, -5);
+      form(s, -1);
+    }
+  }
+};
+
+/** The first marker a choice left that something can come back for. */
+export function returnableMarker(tags: string[]): string | null {
+  return tags.find((t) => t in RED_FLAG_RETURNS) ?? null;
+}

@@ -47,6 +47,7 @@ for (let i = 0; i < N; i++) {
 console.log(`careers simulated        ${N}`);
 console.log(`mean seasons             ${(seasonsTotal / N).toFixed(1)}`);
 console.log(`saw at least one         ${any} (${Math.round((100 * any) / N)}%)`);
+console.log(`consequence came back    ${threads} (${Math.round((100 * threads) / N)}%)`);
 console.log(`with a consequence line  ${withLine} (${Math.round((100 * withLine) / N)}%)`);
 console.log(`mean season of the first ${(firstSeasonSum / Math.max(1, firstSeasonN)).toFixed(1)}`);
 if (died.length) console.log(`careers with none        ${died.length}, mean length ${(died.reduce((a, b) => a + b, 0) / died.length).toFixed(1)} seasons`);
@@ -55,31 +56,44 @@ for (const [k, v] of Object.entries(seen).sort((a, b) => b[1] - a[1])) {
   console.log(`  ${String(v).padStart(4)}  ${k}`);
 }
 
-// Three real threads, exactly as the retirement screen would read them.
+// Three real threads, exactly as the retirement screen would draw them.
 let shown = 0;
 for (let i = 0; i < 400 && shown < 3; i++) {
   const log = autoplay('RF' + i, styles[i % 3], i).redFlagLog ?? [];
-  const beat = log[log.length - 1];
-  if (!beat || !beat.line) continue;
+  const closer = log[log.length - 1];
+  if (!closer || !closer.line) continue;
+  const origin = closer.collects !== undefined ? log[closer.collects] : null;
+  if (shown < 2 && !origin) continue; // want paired ones first
   shown++;
   console.log(`
---- thread ${shown}, as the screen would draw it ---`);
-  console.log(`${beat.year}  ${beat.title.toUpperCase()}`);
-  console.log(`      ${beat.line}`);
-  if (beat.aftermath) console.log(`   >> ${beat.aftermath}`);
-  if (beat.fork) console.log(`   .. ${beat.fork}`);
-  console.log(`   [line=${!!beat.line} fork=${!!beat.fork} aftermath=${!!beat.aftermath}]`);
+--- thread ${shown} ---`);
+  if (origin) {
+    console.log(`${origin.year}  ${origin.title.toUpperCase()}`);
+    console.log(`        ${origin.line}`);
+    const gap = closer.year - origin.year;
+    console.log(`        | ${gap} ${gap === 1 ? 'year' : 'years'} you heard nothing about it`);
+  }
+  console.log(`${closer.year}  ${closer.title.toUpperCase()}`);
+  console.log(`        ${closer.line}`);
+  if (closer.aftermath) console.log(`     >> ${closer.aftermath}`);
+  const fork = origin?.fork ?? closer.fork;
+  if (fork) console.log(`     .. ${fork}`);
 }
 
-// Does every beat at least have a line and a fork? Without those the
-// retirement panel renders a heading over nothing.
-let beats = 0, missing = 0;
+// Every beat needs a line, and every CHOICE needs a fork. A return beat
+// has no fork of its own on purpose: the road not taken belongs to the
+// choice it came back for, and the screen reads it from there.
+let beats = 0, noLine = 0, choices = 0, noFork = 0;
 for (let i = 0; i < 300; i++) {
   const log = autoplay('RF' + i, styles[i % 3], i).redFlagLog ?? [];
   for (const b of log) {
     beats++;
-    if (!b.line || !b.fork) missing++;
+    if (!b.line) noLine++;
+    if (b.collects === undefined) {
+      choices++;
+      if (!b.fork) noFork++;
+    }
   }
 }
 console.log(`
-beats ${beats} | missing a line or a fork ${missing}`);
+beats ${beats} (${choices} choices) | without a line ${noLine} | choices without a fork ${noFork}`);

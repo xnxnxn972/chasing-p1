@@ -447,6 +447,22 @@ export interface GameState {
   lastRedFlagSeason?: number;
   /** What the red flags left behind. Read only by the retirement screen. */
   redFlagLog?: RedFlagRecord[];
+  /**
+   * The consequence a red flag set up, waiting for its season.
+   *
+   * With one red flag a career there is no second one to collect the
+   * first, so the collection is an ordinary news beat a few seasons later:
+   * no board, no choice, it simply arrives. Nothing between the choice and
+   * this says it is coming.
+   */
+  pendingReturn?: {
+    /** Season it lands in, counted the way the minigame slots are. */
+    season: number;
+    /** Which kind of thing was left behind. See RED_FLAG_RETURNS. */
+    marker: string;
+    /** Index in redFlagLog of the choice this comes back for. */
+    from: number;
+  };
   log: string[];
   /** Set while the player is an F1 reserve rather than a race driver. */
   reserveTeamId?: F1TeamId;
