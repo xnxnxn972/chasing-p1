@@ -1,6 +1,14 @@
-import type { GameState, OutcomeView, PendingDecision, RollInfo } from './types';
+import type {
+  GameState,
+  InPlayFace,
+  OutcomeView,
+  PendingDecision,
+  PendingRedFlag,
+  RollInfo
+} from './types';
 import type { DecisionContext, DecisionEvent, DecisionOptionDef, DecisionPhase } from '../data/decisions';
 import { DECISION_EVENTS } from '../data/decisions';
+import { RED_FLAG_EVENTS } from '../data/redFlags';
 import { optionOutcomes, outcomePercentages } from '../data/decisionModel';
 import { Rng } from './random';
 import { pickRival, teammateOf } from './driverMarket';
@@ -96,7 +104,7 @@ export function applyDecision(
   rng: Rng,
   eventId: string,
   optionId: string
-): { note: string; roll?: RollInfo } {
+): { note: string; roll?: RollInfo; taken?: TakenOption } {
   const options = builtOptions.get(eventId);
   const option = options?.find((o) => o.id === optionId);
   state.firedEvents.push(eventId);
@@ -109,13 +117,102 @@ export function applyDecision(
     outcomes.length === 1 ? outcomes[0] : rng.pickWeighted(outcomes, (o) => Math.max(0, o.chance));
   const note = chosen.apply(ctx);
 
-  if (outcomes.length === 1) return { note };
+  // Only a red flag fills these in, and only the retirement screen reads them.
+  const taken: TakenOption = {
+    pastTense: option.pastTense,
+    fork: option.fork,
+    leaves: [...(option.leaves ?? []), ...(chosen.leaves ?? [])],
+    aftermath: chosen.aftermath
+  };
+
+  if (outcomes.length === 1) return { note, taken };
 
   const view = optionView(option);
   return {
     note,
+    taken,
     roll: { optionLabel: option.label, outcomes: view.outcomes, resultId: chosen.id }
   };
+}
+
+/** What the chosen option left behind, for the thread drawn at retirement. */
+export interface TakenOption {
+  pastTense?: string;
+  fork?: string;
+  leaves: string[];
+  aftermath?: string;
+}
+
+/**
+ * Everything this career has genuinely left in play, which is both the pool
+ * a red flag draws from and the list the board rolls through.
+ *
+ * The two are the same list on purpose. A board that rolls past situations
+ * that could never have landed is a lie, and the near miss — the whole
+ * reason the moment has any tension — only works if what went by was real.
+ */
+export function redFlagPool(state: GameState, rng: Rng) {
+  const ctx = decisionContext(state, rng);
+  return RED_FLAG_EVENTS.filter((event) => {
+    if (state.firedEvents.includes(event.id)) return false;
+    try {
+      return event.when(ctx);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * A red flag, or null when this career has left nothing in play yet.
+ *
+ * The collector is preferred when it is eligible: a card that exists to come
+ * back for an earlier choice is wasted if it loses a coin flip to a wet race.
+ */
+export function nextRedFlag(state: GameState, rng: Rng): PendingRedFlag | null {
+  const pool = redFlagPool(state, rng);
+  if (pool.length === 0) return null;
+
+  const collectors = pool.filter((e) => e.tag === 'The reckoning');
+  const event = collectors.length > 0 ? collectors[0] : rng.pick(pool);
+
+  const ctx = decisionContext(state, rng);
+  const built = event.build(ctx);
+  builtOptions.set(event.id, built.options);
+
+  const inPlay: InPlayFace[] = pool.map((e) => ({
+    name: e.build === event.build ? built.title : faceName(e, ctx),
+    group: e.tag
+  }));
+
+  return {
+    kind: 'redflag',
+    inPlay,
+    decision: {
+      kind: 'decision',
+      eventId: event.id,
+      tag: event.tag,
+      title: built.title,
+      body: built.body,
+      options: built.options.map(optionView)
+    }
+  };
+}
+
+/**
+ * The name of a situation that did NOT land, for the board to roll past.
+ *
+ * Built rather than hard-coded so the board can never show a name the card
+ * would not have used. The options are thrown away: building a card costs a
+ * few random draws, and the ones not taken must not move the career on, so
+ * the throwaway build runs on a forked generator.
+ */
+function faceName(event: DecisionEvent, ctx: DecisionContext): string {
+  try {
+    return event.build({ ...ctx, rng: ctx.rng.fork(event.id) }).title;
+  } catch {
+    return event.tag;
+  }
 }
 
 export function resetDecisionCache(): void {

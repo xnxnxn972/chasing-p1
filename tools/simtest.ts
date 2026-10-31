@@ -73,6 +73,10 @@ function autoplay(seed: string, style: any, pick: Picker, i: number, optimise = 
         s = chooseDecisionOption(s, p.options[pick.decision(p.options.length, i)].id);
       }
     }
+    // A red flag is a decision behind a board, and autoplay has no board.
+    else if (p.kind === 'redflag') {
+      s = chooseDecisionOption(s, p.decision.options[pick.decision(p.decision.options.length, i)].id);
+    }
     else if (p.kind === 'offers') s = chooseOffer(s, p.offers[pick.offer(p.offers, i)].id);
     else s = continueStep(s);
   }

@@ -7,6 +7,7 @@ import { boostFor as recallBoost } from '../minigames/TrackRecall/recallScore';
 import { DriverCard } from '../components/DriverCard';
 import { CareerTable } from '../components/CareerTable';
 import { AchievementBadge, DecisionCard, NewsCard, OffersCard, ResultCard } from '../components/StepCard';
+import { RedFlagBoard } from '../components/RedFlagBoard';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
 
 export function CareerScreen({
@@ -61,6 +62,16 @@ export function CareerScreen({
         <div className="stack">
           {pending?.kind === 'decision' ? (
             <DecisionCard
+              step={pending}
+              onChoose={(optionId) => onState(chooseDecisionOption(state, optionId))}
+            />
+          ) : null}
+
+          {/* Keyed on the event so a second red flag rolls its board again
+              rather than reusing the first one's landed state. */}
+          {pending?.kind === 'redflag' ? (
+            <RedFlagBoard
+              key={pending.decision.eventId}
               step={pending}
               onChoose={(optionId) => onState(chooseDecisionOption(state, optionId))}
             />

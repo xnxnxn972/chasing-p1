@@ -1936,3 +1936,221 @@ details.more[open] > summary::before {
   font-size: 14px;
   color: var(--lime);
 }
+
+/* --- Red flag ----------------------------------------------------------- */
+/* The board a red flag arrives on: everything this career left in play,
+   rolling past and stopping on one. Sizing is in a variable because the
+   animation measures a row at runtime and the two must agree. */
+
+.redflag {
+  --redflag-row: 74px;
+}
+
+.redflag-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--lime);
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.redflag-window {
+  position: relative;
+  height: calc(var(--redflag-row) * 3);
+  margin: 0 auto;
+  max-width: 420px;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(120% 70% at 50% 50%, var(--lime-wash), transparent 70%),
+    var(--bg-raised);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateZ(0);
+  transition: box-shadow 0.3s;
+}
+
+.redflag-window.is-landed {
+  box-shadow: 0 0 0 1px var(--lime-dim), 0 0 34px -6px var(--lime-glow);
+  cursor: default;
+}
+
+.redflag-strip {
+  position: absolute;
+  inset: 0 0 auto;
+  will-change: transform, filter;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 26%, #000 74%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 26%, #000 74%, transparent);
+}
+
+.redflag-row {
+  height: var(--redflag-row);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 14px;
+}
+
+.redflag-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(22px, 6.4vw, 34px);
+  line-height: 1;
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.redflag-row.is-result .redflag-name {
+  color: var(--lime);
+}
+
+.redflag-group {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* The payline marks where it will stop, before it does. */
+.redflag-payline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--redflag-row);
+  height: var(--redflag-row);
+  pointer-events: none;
+  border-top: 1px solid rgba(200, 255, 0, 0.22);
+  border-bottom: 1px solid rgba(200, 255, 0, 0.22);
+}
+
+.redflag-window.is-landed .redflag-payline {
+  border-color: rgba(200, 255, 0, 0.5);
+}
+
+.redflag-skip {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: center;
+  min-height: 1.3em;
+  margin-top: 12px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.redflag-skip.is-live {
+  opacity: 1;
+}
+
+@media (max-width: 560px) {
+  .redflag {
+    --redflag-row: 58px;
+  }
+}
+
+/* --- The thread, drawn once at retirement -------------------------------- */
+/* The only place a red flag's consequence is ever shown. Nothing during the
+   career hints at any of this, so the payoff has to be unmistakable here. */
+
+.thread-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--lime);
+  margin-bottom: 18px;
+}
+
+.thread-beat {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 0 14px;
+}
+
+.thread-year {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  padding-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.thread-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 21px;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.thread-line {
+  color: var(--text-dim);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.thread-link {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 0 14px;
+  margin: 14px 0;
+}
+
+.thread-rail {
+  position: relative;
+}
+
+.thread-rail::before {
+  content: '';
+  position: absolute;
+  left: 26px;
+  top: -4px;
+  bottom: -4px;
+  width: 1px;
+  background: repeating-linear-gradient(to bottom, var(--lime-dim) 0 3px, transparent 3px 7px);
+  opacity: 0.7;
+}
+
+.thread-gap {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  align-self: center;
+  padding: 4px 0;
+}
+
+.thread-aftermath {
+  margin: 16px 0 0 68px;
+  padding-left: 14px;
+  border-left: 2px solid #ff5d4a;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.thread-fork {
+  margin: 18px 0 0 68px;
+  color: var(--text-faint);
+  font-size: 13.5px;
+  font-style: italic;
+}
+
+@media (max-width: 480px) {
+  .thread-aftermath,
+  .thread-fork {
+    margin-left: 0;
+  }
+}

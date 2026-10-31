@@ -271,12 +271,63 @@ export interface PendingMinigame {
   body: string;
 }
 
+/** One situation that could land, as the board shows it going past. */
+export interface InPlayFace {
+  name: string;
+  group: string;
+}
+
+/**
+ * A red flag: everything stops, and one of the things this career left in
+ * play comes back at you.
+ *
+ * It is a DECISION WITH A BOARD IN FRONT OF IT, not a second kind of step.
+ * The board rolls through what is genuinely in play right now and stops on
+ * one, and what it stops on is an ordinary decision with ordinary odds — so
+ * none of the decision machinery, and none of the trust the odds have
+ * earned, has to be rebuilt for it.
+ *
+ * Like a minigame it TAKES THE PLACE OF A DECISION rather than adding a
+ * step, so two a career costs a career nothing in length.
+ */
+export interface PendingRedFlag {
+  kind: 'redflag';
+  /** Every situation eligible right now, which is what the board rolls. */
+  inPlay: InPlayFace[];
+  /** The one it stops on, and the only one the player gets to answer. */
+  decision: PendingDecision;
+}
+
+/**
+ * What a red flag left behind, read back only by the retirement screen.
+ *
+ * Nothing in the running game ever shows this. A choice sets a consequence
+ * that the player is told nothing about, and the thread is drawn once, at
+ * the end, when there is nothing left to play around.
+ */
+export interface RedFlagRecord {
+  year: number;
+  /** The situation's name, as the board showed it. */
+  title: string;
+  /** What the player did, in the past tense: "You told nobody." */
+  line: string;
+  /** The road not taken, named but never resolved. */
+  fork?: string;
+  /** Markers a later red flag can look for — a secret, a debt, a feud. */
+  tags: string[];
+  /** Written by the red flag that collected this one. */
+  aftermath?: string;
+  /** Index in the log of the record this one collected. */
+  collects?: number;
+}
+
 export type PendingStep =
   | PendingDecision
   | PendingOffers
   | PendingResult
   | PendingNews
-  | PendingMinigame;
+  | PendingMinigame
+  | PendingRedFlag;
 
 export type Cursor =
   | 'contract'
@@ -381,6 +432,21 @@ export interface GameState {
    * having stopped being a career and started being an arcade.
    */
   lastMinigameSeason?: number;
+  /**
+   * The two seasons a red flag may fire in, drawn once at career creation
+   * exactly as the minigame slots are, and for the same reason: a flat
+   * chance per season leaves a long tail of careers that never meet it.
+   *
+   * Two, deliberately spaced early and late, because two is a structure and
+   * not a quota — the first leaves something behind and the second is what
+   * comes back for it.
+   */
+  redFlagSeasons?: number[];
+  redFlagsUsed?: number;
+  /** So a red flag and a minigame cannot take slots in the same season. */
+  lastRedFlagSeason?: number;
+  /** What the red flags left behind. Read only by the retirement screen. */
+  redFlagLog?: RedFlagRecord[];
   log: string[];
   /** Set while the player is an F1 reserve rather than a race driver. */
   reserveTeamId?: F1TeamId;

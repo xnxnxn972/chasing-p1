@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "balance": "esbuild tools/simtest.ts --bundle --platform=node --format=esm --outfile=.tmp/simtest.mjs --log-level=warning && node .tmp/simtest.mjs",
     "dashboard": "node tools/dashboard.mjs",
-    "loads": "node tools/loads.mjs"
+    "loads": "node tools/loads.mjs",
+    "redflags": "esbuild tools/redflagtest.ts --bundle --platform=node --format=esm --outfile=.tmp/redflagtest.mjs --log-level=warning && node .tmp/redflagtest.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

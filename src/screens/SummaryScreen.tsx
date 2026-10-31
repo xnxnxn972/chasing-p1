@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { GameState } from '../game/types';
+import type { GameState, RedFlagRecord } from '../game/types';
 import {
   careerScore,
   careerTitle,
@@ -190,6 +190,8 @@ export function SummaryScreen({
           <p className="verdict">{verdict}</p>
           </section>
 
+          <Thread log={state.redFlagLog ?? []} />
+
           <div className="unfinished">
             {challenge && (
               <div className={`ambition-result${challenge.beaten ? ' is-met' : ''}`}>
@@ -256,6 +258,60 @@ export function SummaryScreen({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The thread, drawn once, here, and nowhere else.
+ *
+ * Red flags set consequences the player is told nothing about at the time —
+ * no meter, no hint, no acknowledgement when they choose. That only works
+ * if the collection is unmistakable when it finally lands, which is why the
+ * second beat names the first choice outright and the line between them
+ * says how long it sat there unseen.
+ *
+ * A career that drew one red flag, or two that never connected, still gets
+ * its beats; it just has no line drawn between them, because there was no
+ * thread to draw. Nothing is invented to fill the gap.
+ */
+function Thread({ log }: { log: RedFlagRecord[] }) {
+  const beats = log.filter((r) => r.line);
+  if (beats.length === 0) return null;
+
+  const closer = beats[beats.length - 1];
+  const collected =
+    closer.collects !== undefined && log[closer.collects]?.line ? log[closer.collects] : null;
+  const gap = collected ? closer.year - collected.year : 0;
+
+  return (
+    <section className="panel panel-pad">
+      <div className="thread-label">The thread</div>
+      {beats.map((beat, i) => (
+        <div key={`${beat.year}-${beat.title}`}>
+          {i > 0 && collected && beat === closer ? (
+            <div className="thread-link">
+              <div className="thread-rail" />
+              <div className="thread-gap">
+                {gap > 0
+                  ? `${gap} ${gap === 1 ? 'year' : 'years'} you heard nothing about it`
+                  : 'and it came back the same season'}
+              </div>
+            </div>
+          ) : null}
+          <div className="thread-beat">
+            <div className="thread-year">{beat.year}</div>
+            <div>
+              <div className="thread-name">{beat.title}</div>
+              <div className="thread-line">{beat.line}</div>
+            </div>
+          </div>
+        </div>
+      ))}
+      {closer.aftermath ? <p className="thread-aftermath">{closer.aftermath}</p> : null}
+      {/* The road not taken, named and never resolved: enough to want another
+          career, not enough to flatten the one just finished. */}
+      {collected?.fork ? <p className="thread-fork">{collected.fork}</p> : null}
+    </section>
   );
 }
 

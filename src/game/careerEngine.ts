@@ -40,7 +40,8 @@ import {
   playerMarketValue,
   recentFormScore
 } from './contractEngine';
-import { applyDecision, nextDecision, resetDecisionCache } from './decisionEngine';
+import { applyDecision, nextDecision, nextRedFlag, resetDecisionCache } from './decisionEngine';
+import { isCollectable } from '../data/redFlags';
 import { checkAchievements } from './achievementEngine';
 
 export const START_YEAR = 2026;
@@ -81,6 +82,9 @@ export function createCareer(setup: CareerSetup): GameState {
     // Which seasons the two minigames belong to. Drawn here, from the
     // career's own seed, so the same seed always produces the same career.
     ...minigameSeasons(rng),
+    redFlagSeasons: redFlagSeasons(rng),
+    redFlagsUsed: 0,
+    redFlagLog: [],
     rngState: rng.snapshot(),
     player: {
       name: setup.name,
@@ -139,10 +143,38 @@ export function createCareer(setup: CareerSetup): GameState {
 
 export function chooseDecisionOption(state: GameState, optionId: string): GameState {
   const next = clone(state);
-  const pending = next.pending;
-  if (!pending || pending.kind !== 'decision') return next;
+  const held = next.pending;
+  if (!held || (held.kind !== 'decision' && held.kind !== 'redflag')) return next;
+  // A red flag is a decision with a board in front of it. By the time an
+  // option is chosen the board has done its job, so from here the two are
+  // the same thing.
+  const isRedFlag = held.kind === 'redflag';
+  const pending = held.kind === 'redflag' ? held.decision : held;
   const rng = new Rng(next.rngState);
-  const { note, roll } = applyDecision(next, rng, pending.eventId, optionId);
+  const { note, roll, taken } = applyDecision(next, rng, pending.eventId, optionId);
+
+  if (isRedFlag && taken) {
+    const log = next.redFlagLog ?? (next.redFlagLog = []);
+    // Which earlier record this one came back for, so the retirement screen
+    // can draw the line between them. The collector is eligible only when
+    // there is a secret, so there is always one to find.
+    let collects = -1;
+    for (let i = log.length - 1; i >= 0; i--) {
+      if (isCollectable(log[i].tags)) {
+        collects = i;
+        break;
+      }
+    }
+    log.push({
+      year: next.year,
+      title: pending.title,
+      line: taken.pastTense ?? '',
+      fork: taken.fork,
+      tags: taken.leaves,
+      aftermath: taken.aftermath,
+      collects: collects >= 0 ? collects : undefined
+    });
+  }
   next.decisionsUsed += 1;
   next.rngState = rng.snapshot();
   next.pending = null;
@@ -297,6 +329,28 @@ export const TRACK_WALK_SPREAD = 6; // seasons 3..8
  * the same early-career window and costs nothing, since the slot fires at the
  * first eligible season at or after it anyway.
  */
+/**
+ * WHICH seasons the two red flags belong to, drawn once per career exactly
+ * as the minigame slots are, and for the same measured reason: a flat
+ * chance per season leaves a long tail of careers that never meet it.
+ *
+ * Early and late on purpose. The first is there to leave something behind
+ * and the second to come back for it, and a pair drawn from one range would
+ * sometimes land in consecutive seasons, where nothing has had time to
+ * become a consequence. Not season one: a career needs to have done
+ * something before anything can come back at it.
+ */
+export const RED_FLAG_FIRST = 2;
+export const RED_FLAG_FIRST_SPREAD = 4; // seasons 2..5
+export const RED_FLAG_SECOND = 7;
+export const RED_FLAG_SECOND_SPREAD = 5; // seasons 7..11
+
+function redFlagSeasons(rng: Rng): number[] {
+  const first = RED_FLAG_FIRST + Math.floor(rng.next() * RED_FLAG_FIRST_SPREAD);
+  const second = RED_FLAG_SECOND + Math.floor(rng.next() * RED_FLAG_SECOND_SPREAD);
+  return [first, second];
+}
+
 function minigameSeasons(rng: Rng): { gridStartSeason: number; trackWalkSeason: number } {
   const gridStartSeason = GRID_START_FIRST + Math.floor(rng.next() * GRID_START_SPREAD);
   let trackWalkSeason = TRACK_WALK_FIRST + Math.floor(rng.next() * TRACK_WALK_SPREAD);
@@ -329,6 +383,30 @@ function decisionOrMinigame(
   // here: openSeason resets it every year.
   const season = state.history.length + 1;
   const free = !state.reserveTeamId && season !== state.lastMinigameSeason;
+
+  // A red flag outranks a minigame for the slot: there are two a career
+  // against one of each minigame, and it is the one that has to land in a
+  // season where something is already in play.
+  if (
+    slot === 'midseason' &&
+    !state.reserveTeamId &&
+    season !== state.lastRedFlagSeason &&
+    season !== state.lastMinigameSeason
+  ) {
+    const used = state.redFlagsUsed ?? 0;
+    const due = state.redFlagSeasons?.[used];
+    if (due !== undefined && season >= due) {
+      const flag = nextRedFlag(state, rng);
+      // Null when the career has left nothing in play yet. The slot is not
+      // consumed, so it tries again at the next season's midseason.
+      if (flag) {
+        state.redFlagsUsed = used + 1;
+        state.lastRedFlagSeason = season;
+        return flag;
+      }
+    }
+  }
+
   if (free) {
     if (!state.gridStartUsed && season >= (state.gridStartSeason ?? Infinity)) {
       state.gridStartUsed = true;

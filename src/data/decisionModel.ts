@@ -37,6 +37,18 @@ export interface DecisionOutcomeDef {
   detail?: string;
   tone: OutcomeTone;
   apply: (ctx: DecisionContext) => string;
+  /**
+   * RED FLAGS ONLY. What this outcome did to the career, written for the
+   * retirement screen and shown nowhere else. Present only on the outcome
+   * that closes a thread.
+   */
+  aftermath?: string;
+  /**
+   * RED FLAGS ONLY. Markers left by this outcome rather than by the choice,
+   * so a gamble can leave one thing when it comes off and another when it
+   * does not. Merged with the option's own.
+   */
+  leaves?: string[];
 }
 
 export interface DecisionOptionDef {
@@ -48,6 +60,17 @@ export interface DecisionOptionDef {
   apply?: (ctx: DecisionContext) => string;
   /** Gamble: every outcome is shown, with its odds, before choosing. */
   outcomes?: DecisionOutcomeDef[];
+  /**
+   * RED FLAGS ONLY — the three fields below are never read for an ordinary
+   * decision, and the retirement screen is the only thing that reads them
+   * at all. The player is told nothing about any of it while they play.
+   */
+  /** What taking this did, in the past tense: "You told nobody." */
+  pastTense?: string;
+  /** The road not taken, named but never resolved. */
+  fork?: string;
+  /** Markers left in the career for a later red flag to find. */
+  leaves?: string[];
 }
 
 export interface DecisionEvent {

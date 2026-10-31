@@ -128,6 +128,15 @@ export function App() {
     <CareerScreen
       state={state}
       onState={(next) => {
+        // Red flags are the one thing in a career the player cannot steer
+        // toward, so whether they land at all, and whether the second one
+        // ever closes a thread, can only be answered from the log.
+        const flags = next.redFlagLog ?? [];
+        if (flags.length > 0) {
+          trackExtra('red_flags', flags.length);
+          trackExtra('red_flag_seen', flags.map((f) => f.title).join(' · '));
+          trackExtra('red_flag_thread', flags.some((f) => f.collects !== undefined));
+        }
         trackProgress({
           seasons: next.history.length,
           series: next.reserveTeamId ? 'F1 reserve' : next.player.series,
