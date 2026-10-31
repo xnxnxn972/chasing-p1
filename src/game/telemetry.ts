@@ -33,7 +33,9 @@ export interface SessionRow {
   /**
    * Stable for one SITTING — across page loads and across the game, the hub
    * and the minigames — so careers from one visit can be grouped and a visit
-   * counts a person rather than a navigation. See VISIT_KEY below.
+   * counts a person rather than a navigation. A sitting ends after
+   * VISIT_IDLE_MS without a write, whether or not the page was ever
+   * reloaded. See VISIT_KEY below.
    */
   visit_id: string;
   /** 1 for the first career of the visit, 2 for the second, and so on. */
@@ -304,8 +306,26 @@ function loadVisit(): VisitRecord {
   }
 }
 
-/** Keep the sitting alive. Called on every write, not on a timer. */
+/**
+ * Keep the sitting alive, or end it and start the next one.
+ *
+ * The idle window used to be checked only in loadVisit(), which runs once per
+ * page load — so a tab that was never reloaded never ended its sitting at all,
+ * and with the app installed that is an ordinary way to use it. One visitor
+ * held a single id across nine hours and eighteen careers, the last twelve of
+ * them the following morning. Checking here catches every path, because every
+ * path writes.
+ *
+ * The row in flight deliberately KEEPS the old id. The write that discovers
+ * the gap is a write about the career played before it, and moving that career
+ * into the new sitting would be the same mis-attribution in the other
+ * direction. The next career to start picks up the new id.
+ */
 function touchVisit(): void {
+  if (Date.now() - visit.ts > VISIT_IDLE_MS) {
+    visit.id = newId();
+    visit.careers = 0;
+  }
   visit.ts = Date.now();
   try {
     localStorage.setItem(VISIT_KEY, JSON.stringify(visit));
@@ -316,11 +336,12 @@ function touchVisit(): void {
 }
 
 const visit = loadVisit();
-const visitId = visit.id;
 
 const row: SessionRow = {
   session_id: newId(),
-  visit_id: visitId,
+  // Read through `visit` everywhere rather than caching the id: a sitting can
+  // now end while the page stays open, and a cached copy would outlive it.
+  visit_id: visit.id,
   // Not zero when the sitting is already under way: a player who came back
   // from the minigames hub is on their Nth career, not their first.
   career_index: visit.careers,
@@ -492,7 +513,7 @@ function logLoad(): void {
     try {
       const body = JSON.stringify({
         p: {
-          visit_id: visitId,
+          visit_id: visit.id,
           page: pageKey(),
           referrer: row.referrer,
           device: row.device,
@@ -602,7 +623,10 @@ export function trackCareerStart(setup: {
   if (row.seed !== null && row.seed === setup.seed) return;
   // Second and later careers of a visit start their own row.
   if (row.career_index > 0) startNewRow();
-  row.career_index += 1;
+  // Whichever sitting is current NOW, which is not necessarily the one this
+  // page loaded in: the player may have come back to an open tab hours later.
+  row.visit_id = visit.id;
+  row.career_index = visit.careers + 1;
   visit.careers = row.career_index;
   row.careers_started = 1;
   row.driver_name = setup.name.slice(0, 60);
