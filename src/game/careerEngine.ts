@@ -330,25 +330,34 @@ export const TRACK_WALK_SPREAD = 6; // seasons 3..8
  * first eligible season at or after it anyway.
  */
 /**
- * WHICH seasons the two red flags belong to, drawn once per career exactly
- * as the minigame slots are, and for the same measured reason: a flat
- * chance per season leaves a long tail of careers that never meet it.
+ * WHICH season the red flag belongs to, drawn once per career exactly as
+ * the minigame slots are, and for the same measured reason: a flat chance
+ * per season leaves a long tail of careers that never meet it.
  *
- * Early and late on purpose. The first is there to leave something behind
- * and the second to come back for it, and a pair drawn from one range would
- * sometimes land in consecutive seasons, where nothing has had time to
- * become a consequence. Not season one: a career needs to have done
- * something before anything can come back at it.
+ * ONE A CAREER, at the middle of one. A career runs about fourteen
+ * seasons, so halfway is the seventh and two thirds is the ninth or tenth.
+ *
+ * THE WINDOW IS DRAWN EARLIER THAN THAT ON PURPOSE. It fires at the first
+ * midseason slot at or after the season drawn, and a midseason slot opens
+ * in well under half of seasons, so the moment arrives about two and a
+ * half seasons after the number here. Drawing 7-10 landed it at season
+ * 10.7 on average, which is three quarters of the way through a career
+ * rather than the middle of one. Drawing 5-8 lands it where it is meant to
+ * be. Measure it with `npm run redflags` after changing either number.
+ *
+ * THE COST OF THAT WINDOW is that a career ending before season seven never
+ * meets it at all, where a slot at seasons 2-5 reached 87% of them. The
+ * number is in `npm run redflags`; it is the price of the moment landing
+ * mid-career rather than at the start of one.
+ *
+ * It fires at the first eligible midseason slot AT OR AFTER this, so a
+ * reserve year or a quiet season postpones it rather than cancelling it.
  */
-export const RED_FLAG_FIRST = 2;
-export const RED_FLAG_FIRST_SPREAD = 4; // seasons 2..5
-export const RED_FLAG_SECOND = 7;
-export const RED_FLAG_SECOND_SPREAD = 5; // seasons 7..11
+export const RED_FLAG_SEASON = 5;
+export const RED_FLAG_SPREAD = 4; // seasons 5..8
 
 function redFlagSeasons(rng: Rng): number[] {
-  const first = RED_FLAG_FIRST + Math.floor(rng.next() * RED_FLAG_FIRST_SPREAD);
-  const second = RED_FLAG_SECOND + Math.floor(rng.next() * RED_FLAG_SECOND_SPREAD);
-  return [first, second];
+  return [RED_FLAG_SEASON + Math.floor(rng.next() * RED_FLAG_SPREAD)];
 }
 
 function minigameSeasons(rng: Rng): { gridStartSeason: number; trackWalkSeason: number } {

@@ -282,6 +282,9 @@ function Thread({ log }: { log: RedFlagRecord[] }) {
   const collected =
     closer.collects !== undefined && log[closer.collects]?.line ? log[closer.collects] : null;
   const gap = collected ? closer.year - collected.year : 0;
+  // At one red flag a career there is no earlier beat to name, so the road
+  // not taken is the one from this moment rather than from a previous one.
+  const fork = collected?.fork ?? closer.fork;
 
   return (
     <section className="panel panel-pad">
@@ -310,7 +313,7 @@ function Thread({ log }: { log: RedFlagRecord[] }) {
       {closer.aftermath ? <p className="thread-aftermath">{closer.aftermath}</p> : null}
       {/* The road not taken, named and never resolved: enough to want another
           career, not enough to flatten the one just finished. */}
-      {collected?.fork ? <p className="thread-fork">{collected.fork}</p> : null}
+      {fork ? <p className="thread-fork">{fork}</p> : null}
     </section>
   );
 }

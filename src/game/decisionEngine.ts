@@ -8,7 +8,7 @@ import type {
 } from './types';
 import type { DecisionContext, DecisionEvent, DecisionOptionDef, DecisionPhase } from '../data/decisions';
 import { DECISION_EVENTS } from '../data/decisions';
-import { RED_FLAG_EVENTS } from '../data/redFlags';
+import { RED_FLAG_EVENTS, isCollectable } from '../data/redFlags';
 import { optionOutcomes, outcomePercentages } from '../data/decisionModel';
 import { Rng } from './random';
 import { pickRival, teammateOf } from './driverMarket';
@@ -173,7 +173,11 @@ export function nextRedFlag(state: GameState, rng: Rng): PendingRedFlag | null {
   const pool = redFlagPool(state, rng);
   if (pool.length === 0) return null;
 
-  const collectors = pool.filter((e) => e.tag === 'The reckoning');
+  // The reckoning is preferred only when there is genuinely something for
+  // it to come back for. At one red flag a career that never happens, so it
+  // takes its turn with everything else rather than crowding them out.
+  const collecting = (state.redFlagLog ?? []).some((r) => isCollectable(r.tags));
+  const collectors = collecting ? pool.filter((e) => e.tag === 'The reckoning') : [];
   const event = collectors.length > 0 ? collectors[0] : rng.pick(pool);
 
   const ctx = decisionContext(state, rng);

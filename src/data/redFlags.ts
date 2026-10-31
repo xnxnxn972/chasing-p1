@@ -49,14 +49,25 @@ export function isCollectable(tags: string[]): boolean {
   return tags.some((t) => COLLECTABLE.includes(t));
 }
 
-/** The most recent thing this career left that something can come back for. */
-function openTag(ctx: DecisionContext): string | null {
+/**
+ * What a story about this driver would actually be about.
+ *
+ * At one red flag a career there is no earlier one to come back for, so
+ * the subject is read out of the career itself: a garage that has turned
+ * on you, a name big enough to be worth a profile, or a deal that did not
+ * match the promise. The earlier-marker path is kept first because it is
+ * the better story whenever it exists.
+ */
+function storySubject(ctx: DecisionContext): string {
   const log = ctx.state.redFlagLog ?? [];
   for (let i = log.length - 1; i >= 0; i--) {
     const hit = log[i].tags.find((t) => COLLECTABLE.includes(t));
     if (hit) return hit;
   }
-  return null;
+  const { career } = ctx.state.player;
+  if (career.teamRelationship < 40) return 'feud';
+  if (career.reputation >= 55) return 'famous';
+  return 'owed';
 }
 
 /**
@@ -98,7 +109,11 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
       (ctx.lastSeason?.championshipPosition ?? 99) <= 6,
     build: (ctx) => {
       const caller = callerFor(ctx);
+      // Two forms, because the fallback is a phrase and not a name: `who`
+      // opens a sentence and `whom` sits inside one. Sharing them produced
+      // "You met A team in the series above." on the retirement screen.
       const who = caller ? caller.name : 'A team in the series above';
+      const whom = caller ? caller.name : 'a team in the series above';
       const callerId = caller?.id ?? '';
       return {
         title: 'The call',
@@ -108,7 +123,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
             id: 'open',
             label: 'Take the meeting, tell your team after',
             detail: 'Honest, on your own timing.',
-            pastTense: `You met ${who}, and told your team afterwards.`,
+            pastTense: `You met ${whom}, and told your team afterwards.`,
             fork: 'You could have kept it to yourself.',
             leaves: ['known'],
             outcomes: [
@@ -131,6 +146,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
                 effect: 'Relationship −10',
                 detail: 'He takes it as a betrayal and says so.',
                 tone: 'mixed',
+                aftermath: 'He never trusted you again, and he told the people who asked.',
                 apply: (c) => {
                   bond(c.state, -10);
                   rep(c.state, 2);
@@ -144,7 +160,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
             id: 'quiet',
             label: 'Take the meeting, tell nobody',
             detail: 'Nothing on the record. Nothing in writing.',
-            pastTense: `You met ${who}. You told nobody.`,
+            pastTense: `You met ${whom}. You told nobody.`,
             fork: 'You could have told them first.',
             leaves: ['secret'],
             outcomes: [
@@ -166,6 +182,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
                 effect: 'Marketability +6',
                 detail: 'You will not hear about it now.',
                 tone: 'bad',
+                aftermath: 'It came out in the end. It always does.',
                 apply: (c) => {
                   market(c.state, 6);
                   if (callerId) rel(c.state, callerId, 10);
@@ -178,7 +195,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
             id: 'bid',
             label: 'Tell your team first, make them bid',
             pastTense: 'You used the interest to get paid where you were.',
-            fork: `You could have gone to ${who} instead.`,
+            fork: `You could have gone to ${whom} instead.`,
             leaves: [],
             effect: 'Money +1.5 · Relationship +6',
             apply: (c) => {
@@ -233,6 +250,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
               effect: 'Relationship −14',
               detail: 'You are the problem by Thursday.',
               tone: 'bad',
+              aftermath: 'You were the difficult one from that week onward.',
               apply: (c) => {
                 bond(c.state, -14);
                 form(c.state, -1);
@@ -313,6 +331,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
               effect: 'Reputation +12 · Racecraft +2',
               detail: 'Podium, from fourteenth.',
               tone: 'good',
+              aftermath: 'People who saw it still bring it up.',
               leaves: ['famous'],
               apply: (c) => {
                 rep(c.state, 12);
@@ -328,6 +347,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
               effect: 'Relationship −8 · Form −3',
               detail: 'In the wall on lap nine.',
               tone: 'bad',
+              aftermath: 'They stopped giving you the wet tyres first.',
               leaves: ['blamed'],
               apply: (c) => {
                 bond(c.state, -8);
@@ -458,6 +478,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
               effect: 'Relationship −20 · Form −2',
               detail: 'You both finish nowhere, and it was your move.',
               tone: 'bad',
+              aftermath: 'Two teams crossed you off over that corner.',
               apply: (c) => {
                 bond(c.state, -20);
                 form(c.state, -2);
@@ -555,6 +576,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
               effect: 'Relationship −12 · Form −1',
               detail: 'They tell you the truth.',
               tone: 'bad',
+              aftermath: 'You spent the rest of that contract knowing.',
               apply: (c) => {
                 bond(c.state, -12);
                 form(c.state, -1);
@@ -588,6 +610,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
               effect: 'Marketability −4 · Relationship −8',
               detail: 'Nobody rings back, and now they know you looked.',
               tone: 'bad',
+              aftermath: 'Your own team had already started looking too.',
               apply: (c) => {
                 market(c.state, -4);
                 bond(c.state, -8);
@@ -650,6 +673,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
               effect: 'Marketability −5',
               detail: 'They walk, and tell the next driver why.',
               tone: 'bad',
+              aftermath: 'The money went to somebody less particular.',
               apply: (c) => {
                 market(c.state, -5);
                 return 'They walked, and told the next driver exactly why.';
@@ -682,7 +706,12 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
     tag: RED_FLAG_GROUPS.reckoning,
     weight: 1,
     once: true,
-    when: (ctx) => openTag(ctx) !== null,
+    // Worth writing about, or worth writing against. Either will do: the
+    // paddock does not need a secret to start talking, only a reason.
+    when: (ctx) =>
+      ctx.state.player.career.reputation >= 48 ||
+      ctx.state.player.career.teamRelationship < 40 ||
+      (ctx.state.redFlagLog ?? []).some((r) => isCollectable(r.tags)),
     build: (ctx) => ({
       title: 'Paddock rumour',
       // What he has is whatever this career actually left lying around. The
@@ -697,7 +726,7 @@ export const RED_FLAG_EVENTS: DecisionEvent[] = [
           owned: 'A journalist has been through your sponsor’s accounts and wants to ask about them.',
           famous: 'A journalist is writing the long piece about that afternoon and has spoken to everyone who was there.',
           blamed: 'A journalist has the telemetry from the lap you put it in the wall.'
-        }[openTag(ctx) ?? 'secret'] ?? 'A journalist has most of it already.'
+        }[storySubject(ctx)] ?? 'A journalist has most of it already.'
       } He runs it on Thursday. He is offering you Wednesday.`,
       options: [
         {
