@@ -1,1 +1,0 @@
-import{n as e,v as r,j as t,r as o}from"./global-BroBw-P5.js";import{T as s}from"./TrackRecall-BqjTKQ0L.js";/* empty css                   */e();r.createRoot(document.getElementById("root")).render(t.jsx(o.StrictMode,{children:t.jsx(s,{mode:"standalone"})}));

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { DrivingStyle } from '../game/types';
 import type { CareerSetup } from '../game/careerEngine';
 import { NATIONALITIES } from '../data/nationalities';
@@ -7,7 +7,8 @@ import { player } from '../game/playerStore';
 import { makeSeed } from '../game/random';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
 import { ambitionById } from '../game/unfinishedBusiness';
-import { HomeBoard } from '../components/WeeklyBoard';
+import { HomeBoard, StandingsSheet } from '../components/WeeklyBoard';
+import { trackExtra } from '../game/telemetry';
 
 const STYLE_CARDS: {
   id: DrivingStyle;
@@ -111,6 +112,12 @@ export function SetupScreen({
   // old value of a state variable, so a useState guard does not hold.
   const starting = useRef(false);
   const [started, setStarted] = useState(false);
+  const [standings, setStandings] = useState(false);
+  const openStandings = (from: string) => {
+    setStandings(true);
+    trackExtra('standings_opened', from);
+  };
+  const closeStandings = useCallback(() => setStandings(false), []);
 
   // THE STREAK. Read once on mount: the record cannot change while this screen
   // is up, and re-reading it on every keystroke would be pointless work.
@@ -138,9 +145,17 @@ export function SetupScreen({
       <RuleBar
         left="Chasing P1"
         right={
-          <a className="rule-cta" href="/minigames/">
-            Driver training &rarr;
-          </a>
+          <span className="rule-ctas">
+            {/* Anybody can open the standings, including somebody who has never
+                played: a table of other people's careers is a reason to start one. */}
+            <button type="button" className="rule-cta" onClick={() => openStandings('top')}>
+              Standings
+            </button>
+            <a className="rule-cta" href="/minigames/">
+              <span className="rule-cta-long">Driver training</span>
+              <span className="rule-cta-short">Training</span> &rarr;
+            </a>
+          </span>
         }
         accent
         keepRight
@@ -214,7 +229,9 @@ export function SetupScreen({
         </p>
       )}
 
-      <HomeBoard />
+      <HomeBoard onOpen={() => openStandings('strip')} />
+
+      {standings && <StandingsSheet onClose={closeStandings} />}
 
       <form
         onSubmit={(e) => {

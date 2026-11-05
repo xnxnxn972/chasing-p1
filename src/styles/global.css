@@ -2319,15 +2319,170 @@ details.more[open] > summary::before {
   text-underline-offset: 3px;
 }
 
-.board-strip .board-table {
-  margin-top: 10px;
-}
-
 @media (max-width: 520px) {
   .board-row {
     font-size: 13px;
   }
   .board-titles {
     display: none;
+  }
+}
+
+/* --- Standings: top-bar buttons and the sheet ----------------------------- */
+
+.rule-ctas {
+  display: inline-flex;
+  gap: 8px;
+}
+
+/* The Standings pill is a <button>, the training pill an <a>; same look. */
+button.rule-cta {
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.rule-cta-short {
+  display: none;
+}
+
+/* Three things in the bar do not fit a phone at full length. The training
+   pill shortens first; below 360px the label goes too, since the wordmark
+   directly underneath already says "Chasing P1". */
+@media (max-width: 360px) {
+  .setup > .rule-bar .rule-bar-left {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .rule-cta-long {
+    display: none;
+  }
+  .rule-cta-short {
+    display: inline;
+  }
+  .rule-cta {
+    padding: 10px 12px;
+  }
+}
+
+.standings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(2, 3, 5, 0.78);
+  backdrop-filter: blur(3px);
+}
+
+.standings {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  padding: 18px 20px 20px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--lime);
+  border-radius: 4px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.standings-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.standings-close {
+  width: 40px;
+  height: 40px;
+  margin: -10px -10px -10px 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.standings-close:hover,
+.standings-close:focus-visible {
+  color: var(--lime);
+}
+
+.standings-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.standings-tabs button {
+  padding: 11px 8px;
+  border: 0;
+  background: none;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.standings-tabs button + button {
+  border-left: 1px solid var(--line);
+}
+
+.standings-tabs button.is-active {
+  background: var(--lime-wash);
+  color: var(--lime);
+}
+
+.standings-sub {
+  margin: 10px 0 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.standings-you {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.standings-you strong {
+  color: var(--text);
+}
+
+.standings-empty {
+  margin: 18px 0 6px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+/* On a phone the sheet rises from the bottom, where a thumb already is. */
+@media (max-width: 520px) {
+  .standings-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .standings {
+    max-height: 88vh;
+    max-height: 88dvh;
+    border-radius: 6px 6px 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
   }
 }

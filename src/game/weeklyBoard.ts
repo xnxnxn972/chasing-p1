@@ -113,6 +113,25 @@ export async function fetchBoard(score?: number): Promise<BoardWeek | null> {
   };
 }
 
+/**
+ * Every browser's best POSTED career, across every week. Same shape as a week
+ * minus the clock, so one table renders both.
+ */
+export interface AllTimeBoard {
+  total: number;
+  top: BoardRow[];
+  you: { rank: number; score: number } | null;
+}
+
+export async function fetchAllTime(): Promise<AllTimeBoard | null> {
+  const res = await rpc<AllTimeBoard>('cp_board_alltime', {
+    p_player_id: player().id,
+    p_env: telemetryEnv()
+  });
+  if (!res.ok || !res.data || !Array.isArray(res.data.top)) return null;
+  return res.data;
+}
+
 export type PostOutcome =
   | { ok: true; result: PostResult }
   | { ok: false; reason: 'name' | 'failed' };
