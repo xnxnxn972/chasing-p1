@@ -56,6 +56,12 @@ export interface PlayerRecord {
   lastNumber?: number;
   lastNationality?: string;
   lastStyle?: string;
+  /**
+   * Where this browser last SAW itself on the weekly board, and in which week,
+   * so being overtaken can be told to a player who was not there to see it.
+   */
+  boardWeek?: string;
+  boardRank?: number;
 }
 
 function blank(): PlayerRecord {

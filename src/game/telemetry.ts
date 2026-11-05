@@ -17,8 +17,8 @@
 
 // Same project as Flag Collection / Treasure Traitors. The anon key is public
 // by design and is already committed elsewhere in this repo.
-const SUPABASE_URL = 'https://hmvxanqkorcfxwsdusuj.supabase.co';
-const SUPABASE_ANON_KEY =
+export const SUPABASE_URL = 'https://hmvxanqkorcfxwsdusuj.supabase.co';
+export const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtdnhhbnFrb3JjZnh3c2R1c3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjI4OTgsImV4cCI6MjA5NTI5ODg5OH0.7o7OnhikQdgApqPTEIbhjOZ-YcKDU1fBFpcLXPXtEtA';
 
 // Writes go through a security-definer function, not the table. The table has
@@ -714,6 +714,19 @@ export function trackPromptShown(score: number): void {
   row.meta.prompt_shown = true;
   row.meta.prompt_score = score;
   schedule();
+}
+
+/**
+ * Which board this browser belongs on. The same rule as the log: localhost is
+ * 'dev', so testing a build never puts a career on the public board.
+ */
+export function telemetryEnv(): 'prod' | 'dev' {
+  return row.env;
+}
+
+/** The career row in flight, so a board entry can be traced back to its log row. */
+export function currentSessionId(): string {
+  return row.session_id;
 }
 
 /** For debugging from the console. */

@@ -7,6 +7,7 @@ import { player } from '../game/playerStore';
 import { makeSeed } from '../game/random';
 import { BrandLockup, RuleBar, TAGLINE } from '../components/Brand';
 import { ambitionById } from '../game/unfinishedBusiness';
+import { HomeBoard } from '../components/WeeklyBoard';
 
 const STYLE_CARDS: {
   id: DrivingStyle;
@@ -213,6 +214,8 @@ export function SetupScreen({
         </p>
       )}
 
+      <HomeBoard />
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -401,6 +404,8 @@ export function SetupScreen({
               a login. There is no account, no password and no payment. We count how
               far careers get so the game can be improved, and we do not collect your
               IP address, your location, or anything that identifies you.
+              Nothing goes on the weekly board unless you post it, and what you post
+              is your driver name, nationality and score.
             </p>
           </div>
         </div>

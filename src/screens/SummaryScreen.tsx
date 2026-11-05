@@ -15,6 +15,7 @@ import { canShareImages, prepareShareCard, shareCareerCard, shareDataFor } from 
 import { trackExtra, trackPromptShown, trackShare } from '../game/telemetry';
 import { ambitionOutcome, nextAmbition } from '../game/unfinishedBusiness';
 import { challengeOutcome, shouldInviteChallenge } from '../game/challenge';
+import { SummaryBoard } from '../components/WeeklyBoard';
 
 export function SummaryScreen({
   state,
@@ -183,6 +184,16 @@ export function SummaryScreen({
               it was you or the car.
             </p>
           )}
+
+          {/* Directly under the ambition: the other reason to play again is
+              somebody else's number, and this is where it is shown. */}
+          <SummaryBoard
+            name={state.player.name}
+            nationality={state.player.nationality}
+            score={score}
+            titles={totals.titles}
+            careerTitle={title}
+          />
 
           {/* The career is over; this is the only thing on the page that points
               forward. It sits directly under the buttons for that reason. */}
