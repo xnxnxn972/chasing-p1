@@ -588,6 +588,17 @@ export function initTelemetry(): void {
 }
 
 /**
+ * Meta that describes the BROWSER, not the career. App.tsx sets these once per
+ * page load, so a fresh row has to carry them over or every career after the
+ * first is logged with no player_id at all. Until 2026-11-07 that is exactly
+ * what happened: 80% of career rows had player_id NULL.
+ *
+ * player_careers stays the count at page load, not a running tally; add
+ * career_index - 1 to get the count at the start of a later career.
+ */
+const BROWSER_META = ['player_id', 'player_visits', 'player_careers', 'first_seen', 'storage'] as const;
+
+/**
  * Begin a fresh row. The visit keeps its id so careers from one sitting can be
  * grouped, but each career gets its own row — three careers, three rows.
  */
@@ -603,7 +614,9 @@ function startNewRow(): void {
   row.career_score = 0;
   row.shared = false;
   row.share_result = null;
-  row.meta = { ...LANDING_TAGS };
+  const carried: Record<string, unknown> = {};
+  for (const k of BROWSER_META) if (k in row.meta) carried[k] = row.meta[k];
+  row.meta = { ...LANDING_TAGS, ...carried };
   activeMs = 0;
   visibleSince = Date.now();
   rowStarted = Date.now();

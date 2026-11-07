@@ -1,0 +1,1 @@
+import{n as e,v as r,j as t,r as o}from"./global-D8eA1gLy.js";import{T as s}from"./TrackRecall-DSQnEEhV.js";/* empty css                   */e();r.createRoot(document.getElementById("root")).render(t.jsx(o.StrictMode,{children:t.jsx(s,{mode:"standalone"})}));
